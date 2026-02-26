@@ -29,7 +29,7 @@ A lightweight responsive web app for managing users and tracking project/CRM/rep
 - PHP 8+
 - MySQL 8+
 - Bootstrap 5
-- PDO
+- MySQLi
 
 ## Setup
 1. Create database and run:
@@ -53,6 +53,6 @@ A lightweight responsive web app for managing users and tracking project/CRM/rep
 
 
 ## Troubleshooting
-- If you see `SQLSTATE[HY000] [1045] Access denied`, your DB username/password or host is incorrect for that server.
+- If you see `Access denied for user`, your DB username/password or host is incorrect for that server.
 - Double-check the credentials in `config/database.php` (or env vars) and ensure that MySQL user has privileges on the target database.
 - The app now logs detailed DB connection errors to server logs and shows a safe message in the browser instead of a fatal stack trace.
