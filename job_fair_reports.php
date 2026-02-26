@@ -12,9 +12,30 @@ function fetch_grouped_status_counts(string $selectColumns, string $groupByColum
         COUNT(*) AS total_count
     FROM job_fair_result
     GROUP BY $groupByColumns
-    ORDER BY $groupByColumns";
+    ORDER BY selected_count DESC, shortlisted_count DESC, on_hold_count DESC, total_count DESC, $groupByColumns";
 
     return db()->query($sql)->fetchAll();
+}
+
+function calculate_totals(array $rows): array
+{
+    return array_reduce(
+        $rows,
+        static function (array $carry, array $row): array {
+            $carry['selected_count'] += (int) ($row['selected_count'] ?? 0);
+            $carry['shortlisted_count'] += (int) ($row['shortlisted_count'] ?? 0);
+            $carry['on_hold_count'] += (int) ($row['on_hold_count'] ?? 0);
+            $carry['total_count'] += (int) ($row['total_count'] ?? 0);
+
+            return $carry;
+        },
+        [
+            'selected_count' => 0,
+            'shortlisted_count' => 0,
+            'on_hold_count' => 0,
+            'total_count' => 0,
+        ]
+    );
 }
 
 $employerAggregatorRows = fetch_grouped_status_counts(
@@ -32,6 +53,10 @@ $districtRows = fetch_grouped_status_counts(
     "COALESCE(NULLIF(TRIM(Candidate_District), ''), 'Unknown') AS district_name",
     'district_name'
 );
+
+$employerAggregatorTotals = calculate_totals($employerAggregatorRows);
+$aggregatorTotals = calculate_totals($aggregatorRows);
+$districtTotals = calculate_totals($districtRows);
 
 render_header('Job fair reports');
 ?>
@@ -66,6 +91,15 @@ render_header('Job fair reports');
                         <td><strong><?= (int) $row['total_count'] ?></strong></td>
                     </tr>
                 <?php endforeach; ?>
+                <?php if ($employerAggregatorRows !== []): ?>
+                    <tr class="table-secondary fw-semibold">
+                        <td colspan="2">Total</td>
+                        <td><?= $employerAggregatorTotals['selected_count'] ?></td>
+                        <td><?= $employerAggregatorTotals['shortlisted_count'] ?></td>
+                        <td><?= $employerAggregatorTotals['on_hold_count'] ?></td>
+                        <td><strong><?= $employerAggregatorTotals['total_count'] ?></strong></td>
+                    </tr>
+                <?php endif; ?>
                 </tbody>
             </table>
         </div>
@@ -99,6 +133,15 @@ render_header('Job fair reports');
                         <td><strong><?= (int) $row['total_count'] ?></strong></td>
                     </tr>
                 <?php endforeach; ?>
+                <?php if ($aggregatorRows !== []): ?>
+                    <tr class="table-secondary fw-semibold">
+                        <td>Total</td>
+                        <td><?= $aggregatorTotals['selected_count'] ?></td>
+                        <td><?= $aggregatorTotals['shortlisted_count'] ?></td>
+                        <td><?= $aggregatorTotals['on_hold_count'] ?></td>
+                        <td><strong><?= $aggregatorTotals['total_count'] ?></strong></td>
+                    </tr>
+                <?php endif; ?>
                 </tbody>
             </table>
         </div>
@@ -132,6 +175,15 @@ render_header('Job fair reports');
                         <td><strong><?= (int) $row['total_count'] ?></strong></td>
                     </tr>
                 <?php endforeach; ?>
+                <?php if ($districtRows !== []): ?>
+                    <tr class="table-secondary fw-semibold">
+                        <td>Total</td>
+                        <td><?= $districtTotals['selected_count'] ?></td>
+                        <td><?= $districtTotals['shortlisted_count'] ?></td>
+                        <td><?= $districtTotals['on_hold_count'] ?></td>
+                        <td><strong><?= $districtTotals['total_count'] ?></strong></td>
+                    </tr>
+                <?php endif; ?>
                 </tbody>
             </table>
         </div>
