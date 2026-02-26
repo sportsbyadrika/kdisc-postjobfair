@@ -283,10 +283,21 @@ if (isset($_GET['candidate_call_history'])) {
 
 $selectionStatusFilter = trim($_GET['selection_status'] ?? '');
 $jobFairNoFilter = trim($_GET['job_fair_no'] ?? '');
+$dwmsIdFilter = trim($_GET['dwms_id'] ?? '');
+$candidateNameFilter = trim($_GET['candidate_name'] ?? '');
 $employerNameFilter = trim($_GET['employer_name'] ?? '');
 $crmMemberFilter = trim($_GET['crm_member'] ?? '');
 $dsmMember1Filter = trim($_GET['dsm_member_1'] ?? '');
 $dsmMember2Filter = trim($_GET['dsm_member_2'] ?? '');
+$shortlistPreparatoryCallStatusFilter = trim($_GET['shortlist_preparatory_call_status'] ?? '');
+$shortlistCurrentCallStatusFilter = trim($_GET['shortlist_current_call_status'] ?? '');
+$shortlistCurrentProcessStatusFilter = trim($_GET['shortlist_current_process_status'] ?? '');
+$shortlistCandidateStatusFilter = trim($_GET['shortlist_candidate_status'] ?? '');
+$firstCallDoneFilter = trim($_GET['first_call_done'] ?? '');
+$offerLetterGeneratedFilter = trim($_GET['offer_letter_generated'] ?? '');
+$linkToOfferLetterVerifiedFilter = trim($_GET['link_to_offer_letter_verified'] ?? '');
+$confirmOfferLetterReceiptByCandidateFilter = trim($_GET['confirm_offer_letter_receipt_by_candidate'] ?? '');
+$candidateJoinedStatusFilter = trim($_GET['candidate_joined_status'] ?? '');
 $page = max((int) ($_GET['page'] ?? 1), 1);
 $perPage = 25;
 
@@ -296,6 +307,15 @@ $employerNames = db()->query("SELECT DISTINCT Employer_Name FROM job_fair_result
 $crmMembers = db()->query("SELECT DISTINCT CRM_Member FROM job_fair_result WHERE CRM_Member IS NOT NULL AND CRM_Member <> '' ORDER BY CRM_Member")->fetchAll();
 $dsmMember1s = db()->query("SELECT DISTINCT DSM_Member_1 FROM job_fair_result WHERE DSM_Member_1 IS NOT NULL AND DSM_Member_1 <> '' ORDER BY DSM_Member_1")->fetchAll();
 $dsmMember2s = db()->query("SELECT DISTINCT DSM_Member_2 FROM job_fair_result WHERE DSM_Member_2 IS NOT NULL AND DSM_Member_2 <> '' ORDER BY DSM_Member_2")->fetchAll();
+$shortlistPreparatoryCallStatuses = db()->query("SELECT DISTINCT Shortlist_Preparatory_Call_Status FROM job_fair_result WHERE Shortlist_Preparatory_Call_Status IS NOT NULL AND Shortlist_Preparatory_Call_Status <> '' ORDER BY Shortlist_Preparatory_Call_Status")->fetchAll();
+$shortlistCurrentCallStatuses = db()->query("SELECT DISTINCT Shortlist_Current_Call_Status FROM job_fair_result WHERE Shortlist_Current_Call_Status IS NOT NULL AND Shortlist_Current_Call_Status <> '' ORDER BY Shortlist_Current_Call_Status")->fetchAll();
+$shortlistCurrentProcessStatuses = db()->query("SELECT DISTINCT Shortlist_Current_Process_Status FROM job_fair_result WHERE Shortlist_Current_Process_Status IS NOT NULL AND Shortlist_Current_Process_Status <> '' ORDER BY Shortlist_Current_Process_Status")->fetchAll();
+$shortlistCandidateStatuses = db()->query("SELECT DISTINCT Shortlist_Candidate_Status FROM job_fair_result WHERE Shortlist_Candidate_Status IS NOT NULL AND Shortlist_Candidate_Status <> '' ORDER BY Shortlist_Candidate_Status")->fetchAll();
+$firstCallDoneStatuses = db()->query("SELECT DISTINCT First_Call_Done FROM job_fair_result WHERE First_Call_Done IS NOT NULL AND First_Call_Done <> '' ORDER BY First_Call_Done")->fetchAll();
+$offerLetterGeneratedStatuses = db()->query("SELECT DISTINCT Offer_Letter_Generated FROM job_fair_result WHERE Offer_Letter_Generated IS NOT NULL AND Offer_Letter_Generated <> '' ORDER BY Offer_Letter_Generated")->fetchAll();
+$linkToOfferLetterVerifiedStatuses = db()->query("SELECT DISTINCT Link_to_Offer_letter_verified FROM job_fair_result WHERE Link_to_Offer_letter_verified IS NOT NULL AND Link_to_Offer_letter_verified <> '' ORDER BY Link_to_Offer_letter_verified")->fetchAll();
+$confirmOfferLetterReceiptByCandidateStatuses = db()->query("SELECT DISTINCT Confirm_Offer_Letter_Receipt_by_Candidate FROM job_fair_result WHERE Confirm_Offer_Letter_Receipt_by_Candidate IS NOT NULL AND Confirm_Offer_Letter_Receipt_by_Candidate <> '' ORDER BY Confirm_Offer_Letter_Receipt_by_Candidate")->fetchAll();
+$candidateJoinedStatuses = db()->query("SELECT DISTINCT Candidate_Joined_Status FROM job_fair_result WHERE Candidate_Joined_Status IS NOT NULL AND Candidate_Joined_Status <> '' ORDER BY Candidate_Joined_Status")->fetchAll();
 
 $whereSql = ' FROM job_fair_result WHERE 1=1';
 $params = [];
@@ -307,6 +327,14 @@ if ($selectionStatusFilter !== '') {
 if ($jobFairNoFilter !== '') {
     $whereSql .= ' AND Job_Fair_No = ?';
     $params[] = $jobFairNoFilter;
+}
+if ($dwmsIdFilter !== '') {
+    $whereSql .= ' AND DWMS_ID LIKE ?';
+    $params[] = '%' . $dwmsIdFilter . '%';
+}
+if ($candidateNameFilter !== '') {
+    $whereSql .= ' AND Candidate_Name LIKE ?';
+    $params[] = '%' . $candidateNameFilter . '%';
 }
 if ($employerNameFilter !== '') {
     $whereSql .= ' AND Employer_Name = ?';
@@ -323,6 +351,42 @@ if ($dsmMember1Filter !== '') {
 if ($dsmMember2Filter !== '') {
     $whereSql .= ' AND DSM_Member_2 = ?';
     $params[] = $dsmMember2Filter;
+}
+if ($shortlistPreparatoryCallStatusFilter !== '') {
+    $whereSql .= ' AND Shortlist_Preparatory_Call_Status = ?';
+    $params[] = $shortlistPreparatoryCallStatusFilter;
+}
+if ($shortlistCurrentCallStatusFilter !== '') {
+    $whereSql .= ' AND Shortlist_Current_Call_Status = ?';
+    $params[] = $shortlistCurrentCallStatusFilter;
+}
+if ($shortlistCurrentProcessStatusFilter !== '') {
+    $whereSql .= ' AND Shortlist_Current_Process_Status = ?';
+    $params[] = $shortlistCurrentProcessStatusFilter;
+}
+if ($shortlistCandidateStatusFilter !== '') {
+    $whereSql .= ' AND Shortlist_Candidate_Status = ?';
+    $params[] = $shortlistCandidateStatusFilter;
+}
+if ($firstCallDoneFilter !== '') {
+    $whereSql .= ' AND First_Call_Done = ?';
+    $params[] = $firstCallDoneFilter;
+}
+if ($offerLetterGeneratedFilter !== '') {
+    $whereSql .= ' AND Offer_Letter_Generated = ?';
+    $params[] = $offerLetterGeneratedFilter;
+}
+if ($linkToOfferLetterVerifiedFilter !== '') {
+    $whereSql .= ' AND Link_to_Offer_letter_verified = ?';
+    $params[] = $linkToOfferLetterVerifiedFilter;
+}
+if ($confirmOfferLetterReceiptByCandidateFilter !== '') {
+    $whereSql .= ' AND Confirm_Offer_Letter_Receipt_by_Candidate = ?';
+    $params[] = $confirmOfferLetterReceiptByCandidateFilter;
+}
+if ($candidateJoinedStatusFilter !== '') {
+    $whereSql .= ' AND Candidate_Joined_Status = ?';
+    $params[] = $candidateJoinedStatusFilter;
 }
 $countStmt = db()->prepare('SELECT COUNT(*)' . $whereSql);
 $countStmt->execute($params);
@@ -422,6 +486,95 @@ unset($baseParams['page'], $baseParams['candidate_call_history']);
                     <option value="">All</option>
                     <?php foreach ($dsmMember2s as $dsmMember2): ?>
                         <option value="<?= esc($dsmMember2['DSM_Member_2']) ?>" <?= $dsmMember2Filter === $dsmMember2['DSM_Member_2'] ? 'selected' : '' ?>><?= esc($dsmMember2['DSM_Member_2']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="col-12 col-md-4 col-lg-2">
+                <label class="form-label">DWMS ID</label>
+                <input class="form-control" name="dwms_id" type="text" value="<?= esc($dwmsIdFilter) ?>" placeholder="Enter DWMS ID">
+            </div>
+            <div class="col-12 col-md-4 col-lg-2">
+                <label class="form-label">Candidate Name</label>
+                <input class="form-control" name="candidate_name" type="text" value="<?= esc($candidateNameFilter) ?>" placeholder="Enter candidate name">
+            </div>
+            <div class="col-12 col-md-4 col-lg-2">
+                <label class="form-label">Shortlist preparatory call status</label>
+                <select class="form-select" name="shortlist_preparatory_call_status">
+                    <option value="">All</option>
+                    <?php foreach ($shortlistPreparatoryCallStatuses as $status): ?>
+                        <option value="<?= esc($status['Shortlist_Preparatory_Call_Status']) ?>" <?= $shortlistPreparatoryCallStatusFilter === $status['Shortlist_Preparatory_Call_Status'] ? 'selected' : '' ?>><?= esc($status['Shortlist_Preparatory_Call_Status']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="col-12 col-md-4 col-lg-2">
+                <label class="form-label">Shortlist current call status</label>
+                <select class="form-select" name="shortlist_current_call_status">
+                    <option value="">All</option>
+                    <?php foreach ($shortlistCurrentCallStatuses as $status): ?>
+                        <option value="<?= esc($status['Shortlist_Current_Call_Status']) ?>" <?= $shortlistCurrentCallStatusFilter === $status['Shortlist_Current_Call_Status'] ? 'selected' : '' ?>><?= esc($status['Shortlist_Current_Call_Status']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="col-12 col-md-4 col-lg-2">
+                <label class="form-label">Shortlist current process status</label>
+                <select class="form-select" name="shortlist_current_process_status">
+                    <option value="">All</option>
+                    <?php foreach ($shortlistCurrentProcessStatuses as $status): ?>
+                        <option value="<?= esc($status['Shortlist_Current_Process_Status']) ?>" <?= $shortlistCurrentProcessStatusFilter === $status['Shortlist_Current_Process_Status'] ? 'selected' : '' ?>><?= esc($status['Shortlist_Current_Process_Status']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="col-12 col-md-4 col-lg-2">
+                <label class="form-label">Shortlist candidate status</label>
+                <select class="form-select" name="shortlist_candidate_status">
+                    <option value="">All</option>
+                    <?php foreach ($shortlistCandidateStatuses as $status): ?>
+                        <option value="<?= esc($status['Shortlist_Candidate_Status']) ?>" <?= $shortlistCandidateStatusFilter === $status['Shortlist_Candidate_Status'] ? 'selected' : '' ?>><?= esc($status['Shortlist_Candidate_Status']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="col-12 col-md-4 col-lg-2">
+                <label class="form-label">First call done</label>
+                <select class="form-select" name="first_call_done">
+                    <option value="">All</option>
+                    <?php foreach ($firstCallDoneStatuses as $status): ?>
+                        <option value="<?= esc($status['First_Call_Done']) ?>" <?= $firstCallDoneFilter === $status['First_Call_Done'] ? 'selected' : '' ?>><?= esc($status['First_Call_Done']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="col-12 col-md-4 col-lg-2">
+                <label class="form-label">Offer letter generated</label>
+                <select class="form-select" name="offer_letter_generated">
+                    <option value="">All</option>
+                    <?php foreach ($offerLetterGeneratedStatuses as $status): ?>
+                        <option value="<?= esc($status['Offer_Letter_Generated']) ?>" <?= $offerLetterGeneratedFilter === $status['Offer_Letter_Generated'] ? 'selected' : '' ?>><?= esc($status['Offer_Letter_Generated']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="col-12 col-md-4 col-lg-2">
+                <label class="form-label">Link to offer letter verified</label>
+                <select class="form-select" name="link_to_offer_letter_verified">
+                    <option value="">All</option>
+                    <?php foreach ($linkToOfferLetterVerifiedStatuses as $status): ?>
+                        <option value="<?= esc($status['Link_to_Offer_letter_verified']) ?>" <?= $linkToOfferLetterVerifiedFilter === $status['Link_to_Offer_letter_verified'] ? 'selected' : '' ?>><?= esc($status['Link_to_Offer_letter_verified']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="col-12 col-md-4 col-lg-2">
+                <label class="form-label">Confirm offer letter receipt by candidate</label>
+                <select class="form-select" name="confirm_offer_letter_receipt_by_candidate">
+                    <option value="">All</option>
+                    <?php foreach ($confirmOfferLetterReceiptByCandidateStatuses as $status): ?>
+                        <option value="<?= esc($status['Confirm_Offer_Letter_Receipt_by_Candidate']) ?>" <?= $confirmOfferLetterReceiptByCandidateFilter === $status['Confirm_Offer_Letter_Receipt_by_Candidate'] ? 'selected' : '' ?>><?= esc($status['Confirm_Offer_Letter_Receipt_by_Candidate']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="col-12 col-md-4 col-lg-2">
+                <label class="form-label">Candidate joined status</label>
+                <select class="form-select" name="candidate_joined_status">
+                    <option value="">All</option>
+                    <?php foreach ($candidateJoinedStatuses as $status): ?>
+                        <option value="<?= esc($status['Candidate_Joined_Status']) ?>" <?= $candidateJoinedStatusFilter === $status['Candidate_Joined_Status'] ? 'selected' : '' ?>><?= esc($status['Candidate_Joined_Status']) ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>
@@ -535,11 +688,16 @@ body.modal-open {
     border-color: #ffca99;
 }
 
-.status-onhold,
+.status-onhold {
+    color: #084298;
+    background-color: #cfe2ff;
+    border-color: #9ec5fe;
+}
+
 .status-rejected {
-    color: #055160;
-    background-color: #cff4fc;
-    border-color: #9eeaf9;
+    color: #842029;
+    background-color: #f8d7da;
+    border-color: #f1aeb5;
 }
 
 .contact-hint {
