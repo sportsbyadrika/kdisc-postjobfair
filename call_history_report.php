@@ -5,12 +5,25 @@ require_auth();
 
 $user = current_user();
 
-$crmMemberOptions = db()->query(
+$crmMemberRows = db()->query(
     "SELECT DISTINCT CRM_Member
      FROM job_fair_result
      WHERE CRM_Member IS NOT NULL AND TRIM(CRM_Member) <> ''
      ORDER BY CRM_Member"
-)->fetchAll(PDO::FETCH_COLUMN);
+)->fetchAll();
+
+$crmMemberOptions = [];
+foreach ($crmMemberRows as $crmMemberRow) {
+    $crmMemberValue = $crmMemberRow;
+    if (is_array($crmMemberRow)) {
+        $crmMemberValue = $crmMemberRow['CRM_Member'] ?? reset($crmMemberRow);
+    }
+
+    $crmMemberValue = trim((string) $crmMemberValue);
+    if ($crmMemberValue !== '') {
+        $crmMemberOptions[] = $crmMemberValue;
+    }
+}
 
 $selectedMember = trim((string) ($_GET['crm_member'] ?? ''));
 
