@@ -73,7 +73,7 @@ CREATE TABLE IF NOT EXISTS job_fair_result (
   DSM_Member_1 VARCHAR(255),
   DSM_Member_2 VARCHAR(255),
   Selection_Status VARCHAR(255),
-  Data_uploaded_date DATETIME,
+  Data_uploaded_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   First_Call_Date DATETIME,
   First_Call_Done ENUM('Yes','No','Pending'),
   Offer_Letter_Generated ENUM('Yes','No','Pending'),
