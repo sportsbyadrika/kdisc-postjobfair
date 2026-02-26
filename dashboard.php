@@ -26,9 +26,16 @@ $reportCount = (int) db()->query("SELECT COUNT(*) FROM activities WHERE module_n
 $pivotRows = db()->query('SELECT Job_Fair_No, Selection_Status, COUNT(*) AS total_count FROM job_fair_result GROUP BY Job_Fair_No, Selection_Status ORDER BY Job_Fair_No, Selection_Status')->fetchAll();
 $pivotStatuses = [];
 $pivotData = [];
+$statusOrder = ['Selected', 'Shortlisted', 'OnHold'];
+$statusAliases = [
+    'onhold' => 'OnHold',
+    'on hold' => 'OnHold',
+];
 foreach ($pivotRows as $pivotRow) {
     $jobFairNo = (string) ($pivotRow['Job_Fair_No'] ?? '');
-    $status = (string) ($pivotRow['Selection_Status'] ?? 'Unknown');
+    $rawStatus = (string) ($pivotRow['Selection_Status'] ?? 'Unknown');
+    $statusKey = strtolower(trim($rawStatus));
+    $status = $statusAliases[$statusKey] ?? $rawStatus;
     $total = (int) ($pivotRow['total_count'] ?? 0);
     if (!in_array($status, $pivotStatuses, true)) {
         $pivotStatuses[] = $status;
@@ -36,9 +43,17 @@ foreach ($pivotRows as $pivotRow) {
     if (!isset($pivotData[$jobFairNo])) {
         $pivotData[$jobFairNo] = [];
     }
-    $pivotData[$jobFairNo][$status] = $total;
+    $pivotData[$jobFairNo][$status] = ($pivotData[$jobFairNo][$status] ?? 0) + $total;
 }
-sort($pivotStatuses);
+$orderedStatuses = [];
+foreach ($statusOrder as $statusLabel) {
+    if (in_array($statusLabel, $pivotStatuses, true)) {
+        $orderedStatuses[] = $statusLabel;
+    }
+}
+$remainingStatuses = array_values(array_diff($pivotStatuses, $orderedStatuses));
+sort($remainingStatuses);
+$pivotStatuses = [...$orderedStatuses, ...$remainingStatuses];
 ksort($pivotData);
 render_header('Dashboard');
 ?>

@@ -223,6 +223,7 @@ foreach ($editableFieldConfig as $config) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $candidateId = (int) ($_POST['candidate_id'] ?? 0);
+    $updateSection = trim((string) ($_POST['update_section'] ?? ''));
 
     if ($candidateId > 0) {
         $setClauses = [];
@@ -230,6 +231,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         foreach ($editableFieldMap as $fieldName => $fieldConfig) {
             if (($fieldConfig['field_type'] ?? '') === 'label') {
+                continue;
+            }
+
+            $panelLabel = (string) ($fieldConfig['panel_label'] ?? '');
+            if ($updateSection === 'shortlist_onhold' && $panelLabel !== 'Shortlist/Onhold') {
+                continue;
+            }
+            if ($updateSection === 'selected' && $panelLabel !== 'Selected') {
+                continue;
+            }
+            if (!in_array($updateSection, ['shortlist_onhold', 'selected', ''], true)) {
                 continue;
             }
 
@@ -246,22 +258,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $updateStmt->execute($updateValues);
         }
 
-        $callHistoryStage = trim((string) ($_POST['call_history_stage'] ?? ''));
-        $callHistoryDateTime = trim((string) ($_POST['call_history_call_datetime'] ?? ''));
-        $callHistoryStatus = trim((string) ($_POST['call_history_call_status'] ?? ''));
-        $callHistoryRemarks = trim((string) ($_POST['call_history_call_remarks'] ?? ''));
+        if ($updateSection === 'call_history' || $updateSection === '') {
+            $callHistoryStage = trim((string) ($_POST['call_history_stage'] ?? ''));
+            $callHistoryDateTime = trim((string) ($_POST['call_history_call_datetime'] ?? ''));
+            $callHistoryStatus = trim((string) ($_POST['call_history_call_status'] ?? ''));
+            $callHistoryRemarks = trim((string) ($_POST['call_history_call_remarks'] ?? ''));
 
-        if ($callHistoryStage !== '' && $callHistoryStatus !== '' && $callHistoryDateTime !== '') {
-            $callHistoryStmt = db()->prepare(
-                'INSERT INTO candidate_call_history (candidate_id, stage, call_datetime, call_status, call_remarks) VALUES (?, ?, ?, ?, ?)'
-            );
-            $callHistoryStmt->execute([
-                $candidateId,
-                $callHistoryStage,
-                str_replace('T', ' ', $callHistoryDateTime),
-                $callHistoryStatus,
-                $callHistoryRemarks === '' ? null : $callHistoryRemarks,
-            ]);
+            if ($callHistoryStage !== '' && $callHistoryStatus !== '' && $callHistoryDateTime !== '') {
+                $callHistoryStmt = db()->prepare(
+                    'INSERT INTO candidate_call_history (candidate_id, stage, call_datetime, call_status, call_remarks) VALUES (?, ?, ?, ?, ?)'
+                );
+                $callHistoryStmt->execute([
+                    $candidateId,
+                    $callHistoryStage,
+                    str_replace('T', ' ', $callHistoryDateTime),
+                    $callHistoryStatus,
+                    $callHistoryRemarks === '' ? null : $callHistoryRemarks,
+                ]);
+            }
         }
     }
 
@@ -695,9 +709,9 @@ body.modal-open {
 }
 
 .status-rejected {
-    color: #842029;
-    background-color: #f8d7da;
-    border-color: #f1aeb5;
+    color: #ffffff;
+    background-color: #dc3545;
+    border-color: #b02a37;
 }
 
 .contact-hint {
@@ -751,7 +765,6 @@ body.modal-open {
                     <div id="dynamicPanels"></div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-primary" type="submit">Update</button>
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
                 </div>
             </form>
@@ -783,7 +796,10 @@ function escapeHtml(value) {
 }
 
 function normalizeStatus(value) {
-    return String(value || '').trim().toLowerCase();
+    return String(value || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '');
 }
 
 function renderStatusChip(value) {
@@ -922,6 +938,9 @@ function renderPanels(row) {
                             </div>
                         </div>
                     </div>
+                    <div class="d-flex justify-content-end mb-3">
+                        <button type="submit" class="btn btn-primary btn-sm" name="update_section" value="call_history">Add Call History</button>
+                    </div>
                     <div class="card">
                         <div class="card-header">Call History</div>
                         <div class="card-body">
@@ -968,8 +987,12 @@ function renderPanels(row) {
             `;
         }).join('');
 
+        const updateSection = panel === 'Shortlist/Onhold' ? 'shortlist_onhold' : 'selected';
         return `
             <div class="tab-pane fade ${index === 0 ? 'show active' : ''}" id="panel-${panelKey}">
+                <div class="d-flex justify-content-end mb-3">
+                    <button type="submit" class="btn btn-primary btn-sm" name="update_section" value="${updateSection}">Update ${panel} Details</button>
+                </div>
                 ${groupHtml}
             </div>
         `;
