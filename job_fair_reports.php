@@ -6,9 +6,9 @@ require_auth();
 function fetch_grouped_status_counts(string $selectColumns, string $groupByColumns): array
 {
     $sql = "SELECT $selectColumns,
-        SUM(CASE WHEN LOWER(TRIM(Shortlist_Candidate_Status)) = 'selected' THEN 1 ELSE 0 END) AS selected_count,
-        SUM(CASE WHEN LOWER(TRIM(Shortlist_Candidate_Status)) = 'shortlisted' THEN 1 ELSE 0 END) AS shortlisted_count,
-        SUM(CASE WHEN LOWER(REPLACE(TRIM(Shortlist_Candidate_Status), ' ', '')) = 'onhold' THEN 1 ELSE 0 END) AS on_hold_count,
+        SUM(CASE WHEN LOWER(TRIM(Selection_Status)) = 'selected' THEN 1 ELSE 0 END) AS selected_count,
+        SUM(CASE WHEN LOWER(TRIM(Selection_Status)) = 'shortlisted' THEN 1 ELSE 0 END) AS shortlisted_count,
+        SUM(CASE WHEN LOWER(REPLACE(TRIM(Selection_Status), ' ', '')) = 'onhold' THEN 1 ELSE 0 END) AS on_hold_count,
         COUNT(*) AS total_count
     FROM job_fair_result
     GROUP BY $groupByColumns
