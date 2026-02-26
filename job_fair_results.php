@@ -78,7 +78,12 @@ render_header('Job fair result data');
 ?>
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h3 mb-0">Job fair result data</h1>
-    <span class="badge bg-primary-subtle text-primary-emphasis">Records: <?= count($rows) ?></span>
+    <div class="d-flex align-items-center gap-2">
+        <?php if ($user['role'] === 'administrator'): ?>
+            <a class="btn btn-sm btn-outline-primary" href="/job_fair_result_upload.php">Upload CSV</a>
+        <?php endif; ?>
+        <span class="badge bg-primary-subtle text-primary-emphasis">Records: <?= count($rows) ?></span>
+    </div>
 </div>
 
 <form method="get" class="card mb-4">

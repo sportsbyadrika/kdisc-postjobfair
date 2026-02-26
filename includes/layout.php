@@ -33,6 +33,9 @@ function render_header(string $title): void
                         <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Job fair</a>
                         <ul class="dropdown-menu">
                             <li><a class="dropdown-item" href="/job_fair_results.php">Job fair result data</a></li>
+                            <?php if ($user['role'] === 'administrator'): ?>
+                                <li><a class="dropdown-item" href="/job_fair_result_upload.php">Upload job fair result CSV</a></li>
+                            <?php endif; ?>
                         </ul>
                     </li>
                     <?php if ($user['role'] === 'administrator'): ?>
