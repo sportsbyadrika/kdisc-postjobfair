@@ -36,7 +36,9 @@ A lightweight responsive web app for managing users and tracking project/CRM/rep
    ```sql
    source schema.sql;
    ```
-2. Update DB credentials in `config/database.php`.
+2. Configure database credentials (either option below):
+   - Edit `config/database.php`, or
+   - Set environment variables: `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASS`, `DB_CHARSET`.
 3. Serve app:
    ```bash
    php -S 0.0.0.0:8000
@@ -48,3 +50,9 @@ A lightweight responsive web app for managing users and tracking project/CRM/rep
 - Password: `Admin@123`
 
 > Change default credentials immediately in production.
+
+
+## Troubleshooting
+- If you see `SQLSTATE[HY000] [1045] Access denied`, your DB username/password or host is incorrect for that server.
+- Double-check the credentials in `config/database.php` (or env vars) and ensure that MySQL user has privileges on the target database.
+- The app now logs detailed DB connection errors to server logs and shows a safe message in the browser instead of a fatal stack trace.
