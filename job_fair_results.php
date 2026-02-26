@@ -701,10 +701,11 @@ body.modal-open {
 }
 
 .contact-hint {
-    display: block;
-    font-size: 0.72rem;
+    display: inline-block;
+    font-size: 0.7rem;
     color: #6f42c1;
-    margin-top: 0.2rem;
+    margin-left: 0.35rem;
+    font-weight: 500;
 }
 
 .candidate-details-header {
@@ -796,20 +797,21 @@ function renderStatusChip(value) {
 
 function renderDetailLabel(name) {
     const label = formatLabel(name);
-    if (name === 'Candidate_Name' && (window.currentCandidateRow?.Candidate_Contact)) {
-        return `${label}<span class="contact-hint">Contact: ${escapeHtml(window.currentCandidateRow.Candidate_Contact)}</span>`;
+    if (name === 'Candidate_Name') {
+        const candidateContact = window.currentCandidateRow?.Mobile_Number || '';
+        return candidateContact ? `${label}<span class="contact-hint">(${escapeHtml(candidateContact)})</span>` : label;
     }
     if (name === 'Employer_Name') {
         const spocName = window.currentCandidateRow?.Employer_SPOC_Name || '';
         const spocMobile = window.currentCandidateRow?.Employer_SPOC_Mobile || '';
         const spoc = [spocName, spocMobile].filter(Boolean).join(', ');
-        return spoc ? `${label}<span class="contact-hint">Employer SPOC: ${escapeHtml(spoc)}</span>` : label;
+        return spoc ? `${label}<span class="contact-hint">(${escapeHtml(spoc)})</span>` : label;
     }
-    if (name === 'Job_Title_Name') {
+    if (name === 'Aggregator') {
         const aggName = window.currentCandidateRow?.Aggregator_SPOC_Name || '';
         const aggMobile = window.currentCandidateRow?.Aggregator_SPOC_Mobile || '';
         const agg = [aggName, aggMobile].filter(Boolean).join(', ');
-        return agg ? `${label}<span class="contact-hint">Aggregator: ${escapeHtml(agg)}</span>` : label;
+        return agg ? `${label}<span class="contact-hint">(${escapeHtml(agg)})</span>` : label;
     }
     return label;
 }
@@ -858,6 +860,7 @@ function renderPanels(row) {
         ['Employer_Name', row.Employer_Name],
         ['Job_Id', row.Job_Id],
         ['Job_Title_Name', row.Job_Title_Name],
+        ['Aggregator', row.Aggregator],
         ['CRM_Member', row.CRM_Member],
         ['DSM_Member_1', row.DSM_Member_1],
         ['DSM_Member_2', row.DSM_Member_2],
