@@ -437,8 +437,14 @@ render_header('Job fair result data');
     </div>
 </div>
 
+<style>
+body.modal-open {
+    overflow-y: auto !important;
+}
+</style>
+
 <div class="modal fade" id="manageCandidateModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-dialog modal-xl">
         <div class="modal-content">
             <form method="post" id="manageCandidateForm">
                 <div class="modal-header">
@@ -524,7 +530,7 @@ function renderPanels(row) {
     ];
 
     detailPanel.innerHTML = details
-        .map(([name, value]) => `<div class="col-12 col-md-6"><label class="form-label text-muted small">${formatLabel(name)}</label><div class="form-control bg-light">${value || 'N/A'}</div></div>`)
+        .map(([name, value]) => `<div class="col-12 col-md-4"><label class="form-label text-muted small">${formatLabel(name)}</label><div class="form-control bg-light">${value || 'N/A'}</div></div>`)
         .join('');
 
     const availablePanels = row.Selection_Status === 'Selected'
