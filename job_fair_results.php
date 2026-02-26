@@ -636,7 +636,8 @@ unset($baseParams['page'], $baseParams['candidate_call_history']);
                         <tr>
                             <td>
                                 <div><?= esc($row['Job_Fair_No'] ?: 'N/A') ?></div>
-                                <div class="small text-muted">Status: <span class="status-chip <?= esc('status-' . strtolower($row['Selection_Status'] ?? '')) ?>"><?= esc($row['Selection_Status'] ?: 'N/A') ?></span></div>
+                                <?php $selectionStatusClass = strtolower(preg_replace('/[^a-z0-9]+/i', '', (string) ($row['Selection_Status'] ?? ''))); ?>
+                                <div class="small text-muted"><span class="status-chip <?= esc('status-' . $selectionStatusClass) ?>"><?= esc($row['Selection_Status'] ?: 'N/A') ?></span></div>
                             </td>
                             <td>
                                 <div><?= esc($row['DWMS_ID'] ?: 'N/A') ?></div>
@@ -709,9 +710,9 @@ body.modal-open {
 }
 
 .status-rejected {
-    color: #ffffff;
-    background-color: #dc3545;
-    border-color: #b02a37;
+    color: #dc3545;
+    background-color: #f8d7da;
+    border-color: #f1aeb5;
 }
 
 .contact-hint {
