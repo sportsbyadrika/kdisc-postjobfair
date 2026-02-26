@@ -722,6 +722,14 @@ body.modal-open {
     font-weight: 500;
 }
 
+.contact-hint-employer {
+    color: #0d6efd;
+}
+
+.contact-hint-aggregator {
+    color: #d63384;
+}
+
 .candidate-details-header {
     display: flex;
     align-items: center;
@@ -774,7 +782,7 @@ body.modal-open {
 
 <script>
 const fieldConfig = <?= json_encode($editableFieldConfig, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
-const callHistoryStageOptions = ['Employer Connect', 'Candidate Connect'];
+const callHistoryStageOptions = ['Employer Connect', 'Candidate Connect', 'Aggregator Contact'];
 const callHistoryStatusOptions = ['Attended', 'Not attended', 'Invalid number'];
 
 function toInputDatetime(value) {
@@ -820,14 +828,14 @@ function renderDetailLabel(name) {
     if (name === 'Employer_Name') {
         const spocName = window.currentCandidateRow?.Employer_SPOC_Name || '';
         const spocMobile = window.currentCandidateRow?.Employer_SPOC_Mobile || '';
-        const spoc = [spocName, spocMobile].filter(Boolean).join(', ');
-        return spoc ? `${label}<span class="contact-hint">(${escapeHtml(spoc)})</span>` : label;
+        const spoc = [spocName, spocMobile].filter(Boolean).join(' : ');
+        return spoc ? `${label}<span class="contact-hint contact-hint-employer">(${escapeHtml(spoc)})</span>` : label;
     }
     if (name === 'Aggregator') {
         const aggName = window.currentCandidateRow?.Aggregator_SPOC_Name || '';
         const aggMobile = window.currentCandidateRow?.Aggregator_SPOC_Mobile || '';
-        const agg = [aggName, aggMobile].filter(Boolean).join(', ');
-        return agg ? `${label}<span class="contact-hint">(${escapeHtml(agg)})</span>` : label;
+        const agg = [aggName, aggMobile].filter(Boolean).join(' : ');
+        return agg ? `${label}<span class="contact-hint contact-hint-aggregator">(${escapeHtml(agg)})</span>` : label;
     }
     return label;
 }
