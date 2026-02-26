@@ -11,3 +11,7 @@
 .card-stat {
     border-left: 4px solid var(--bs-primary);
 }
+
+.job-fair-result-card {
+    border-left: 4px solid var(--bs-success);
+}

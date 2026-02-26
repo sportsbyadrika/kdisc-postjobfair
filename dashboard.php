@@ -22,6 +22,24 @@ $projectCount = (int) db()->query("SELECT COUNT(*) FROM activities WHERE module_
 $crmCount = (int) db()->query("SELECT COUNT(*) FROM activities WHERE module_name='crm' AND active_status = 1")->fetchColumn();
 $reportCount = (int) db()->query("SELECT COUNT(*) FROM activities WHERE module_name='report' AND active_status = 1")->fetchColumn();
 
+
+$pivotRows = db()->query('SELECT Job_Fair_No, Selection_Status, COUNT(*) AS total_count FROM job_fair_result GROUP BY Job_Fair_No, Selection_Status ORDER BY Job_Fair_No, Selection_Status')->fetchAll();
+$pivotStatuses = [];
+$pivotData = [];
+foreach ($pivotRows as $pivotRow) {
+    $jobFairNo = (string) ($pivotRow['Job_Fair_No'] ?? '');
+    $status = (string) ($pivotRow['Selection_Status'] ?? 'Unknown');
+    $total = (int) ($pivotRow['total_count'] ?? 0);
+    if (!in_array($status, $pivotStatuses, true)) {
+        $pivotStatuses[] = $status;
+    }
+    if (!isset($pivotData[$jobFairNo])) {
+        $pivotData[$jobFairNo] = [];
+    }
+    $pivotData[$jobFairNo][$status] = $total;
+}
+sort($pivotStatuses);
+ksort($pivotData);
 render_header('Dashboard');
 ?>
 <h1 class="h3 mb-4">Welcome, <?= esc($user['name']) ?></h1>
@@ -47,4 +65,43 @@ render_header('Dashboard');
         </div>
     </div>
 </div>
+
+<div class="card mt-3">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h2 class="h5 mb-0">Job Fair Selection Pivot</h2>
+            <a class="btn btn-sm btn-outline-primary" href="/job_fair_results.php">Open Job fair result data</a>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-bordered table-striped align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Job Fair No</th>
+                        <?php foreach ($pivotStatuses as $pivotStatus): ?>
+                            <th><?= esc($pivotStatus) ?></th>
+                        <?php endforeach; ?>
+                        <th>Row Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                <?php if ($pivotData === []): ?>
+                    <tr><td colspan="<?= count($pivotStatuses) + 2 ?>" class="text-center text-muted">No job fair result data available.</td></tr>
+                <?php endif; ?>
+                <?php foreach ($pivotData as $jobFairNo => $statusCounts): ?>
+                    <?php $rowTotal = 0; ?>
+                    <tr>
+                        <td><?= esc($jobFairNo) ?></td>
+                        <?php foreach ($pivotStatuses as $pivotStatus): ?>
+                            <?php $value = (int) ($statusCounts[$pivotStatus] ?? 0); $rowTotal += $value; ?>
+                            <td><?= $value ?></td>
+                        <?php endforeach; ?>
+                        <td><strong><?= $rowTotal ?></strong></td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
 <?php render_footer(); ?>
