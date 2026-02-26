@@ -14,6 +14,7 @@ $dsmMember2Filter = trim($_GET['dsm_member_2'] ?? '');
 
 $selectionStatuses = db()->query("SELECT DISTINCT Selection_Status FROM job_fair_result WHERE Selection_Status IS NOT NULL AND Selection_Status <> '' ORDER BY Selection_Status")->fetchAll();
 $jobFairNos = db()->query("SELECT DISTINCT Job_Fair_No FROM job_fair_result WHERE Job_Fair_No IS NOT NULL AND Job_Fair_No <> '' ORDER BY Job_Fair_No")->fetchAll();
+$employerNames = db()->query("SELECT DISTINCT Employer_Name FROM job_fair_result WHERE Employer_Name IS NOT NULL AND Employer_Name <> '' ORDER BY Employer_Name")->fetchAll();
 $crmMembers = db()->query("SELECT DISTINCT CRM_Member FROM job_fair_result WHERE CRM_Member IS NOT NULL AND CRM_Member <> '' ORDER BY CRM_Member")->fetchAll();
 $dsmMember1s = db()->query("SELECT DISTINCT DSM_Member_1 FROM job_fair_result WHERE DSM_Member_1 IS NOT NULL AND DSM_Member_1 <> '' ORDER BY DSM_Member_1")->fetchAll();
 $dsmMember2s = db()->query("SELECT DISTINCT DSM_Member_2 FROM job_fair_result WHERE DSM_Member_2 IS NOT NULL AND DSM_Member_2 <> '' ORDER BY DSM_Member_2")->fetchAll();
@@ -30,8 +31,8 @@ if ($jobFairNoFilter !== '') {
     $params[] = $jobFairNoFilter;
 }
 if ($employerNameFilter !== '') {
-    $sql .= ' AND Employer_Name LIKE ?';
-    $params[] = '%' . $employerNameFilter . '%';
+    $sql .= ' AND Employer_Name = ?';
+    $params[] = $employerNameFilter;
 }
 if ($crmMemberFilter !== '') {
     $sql .= ' AND CRM_Member = ?';
@@ -110,7 +111,12 @@ render_header('Job fair result data');
             </div>
             <div class="col-12 col-md-4 col-lg-2">
                 <label class="form-label">Employer Name</label>
-                <input type="text" name="employer_name" class="form-control" value="<?= esc($employerNameFilter) ?>" placeholder="Employer name">
+                <select class="form-select" name="employer_name">
+                    <option value="">All</option>
+                    <?php foreach ($employerNames as $employerName): ?>
+                        <option value="<?= esc($employerName['Employer_Name']) ?>" <?= $employerNameFilter === $employerName['Employer_Name'] ? 'selected' : '' ?>><?= esc($employerName['Employer_Name']) ?></option>
+                    <?php endforeach; ?>
+                </select>
             </div>
             <div class="col-12 col-md-4 col-lg-2">
                 <label class="form-label">CRM Member</label>
@@ -147,44 +153,63 @@ render_header('Job fair result data');
     </div>
 </form>
 
-<div class="row g-3 mb-4">
-    <?php if ($rows === []): ?>
-        <div class="col-12"><div class="alert alert-info mb-0">No results found for the selected filters.</div></div>
-    <?php endif; ?>
-    <?php foreach ($rows as $row): ?>
-        <?php
-        $daySinceJobFair = null;
-        if (!empty($row['Job_Fair_Date'])) {
-            $jobFairDate = new DateTime($row['Job_Fair_Date']);
-            $today = new DateTime();
-            $daySinceJobFair = (int) $jobFairDate->diff($today)->format('%a');
-        }
-        ?>
-        <div class="col-12 col-md-6 col-xl-4">
-            <div class="card h-100 job-fair-result-card">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <h2 class="h6 mb-0"><?= esc($row['Candidate_Name'] ?: 'N/A') ?></h2>
-                        <span class="badge bg-secondary"><?= esc($row['Selection_Status'] ?: 'N/A') ?></span>
-                    </div>
-                    <ul class="list-unstyled small mb-0">
-                        <li><strong>Job Fair No:</strong> <?= esc($row['Job_Fair_No']) ?></li>
-                        <li><strong>DWMS ID:</strong> <?= esc($row['DWMS_ID']) ?></li>
-                        <li><strong>Days since Job Fair Date:</strong> <?= $daySinceJobFair !== null ? $daySinceJobFair : 'N/A' ?></li>
-                        <li><strong>Offer Letter Generated:</strong> <?= esc($row['Offer_Letter_Generated'] ?: 'N/A') ?></li>
-                        <li><strong>Offer Letter Verified:</strong> <?= esc($row['Link_to_Offer_letter_verified'] ?: 'N/A') ?></li>
-                        <li><strong>Offer Receipt Confirmed:</strong> <?= esc($row['Confirm_Offer_Letter_Receipt_by_Candidate'] ?: 'N/A') ?></li>
-                        <li><strong>Candidate Joined Status:</strong> <?= esc($row['Candidate_Joined_Status'] ?: 'N/A') ?></li>
-                    </ul>
-                </div>
-            </div>
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-bordered table-striped align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Candidate Name</th>
+                        <th>Employer Name</th>
+                        <th>Job Title</th>
+                        <th>Selection Status</th>
+                        <th>Job Fair No</th>
+                        <th>DWMS ID</th>
+                        <th>Days since Job Fair Date</th>
+                        <th>Offer Letter Generated</th>
+                        <th>Offer Letter Verified</th>
+                        <th>Offer Receipt Confirmed</th>
+                        <th>Candidate Joined Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if ($rows === []): ?>
+                        <tr>
+                            <td colspan="11" class="text-center text-muted">No results found for the selected filters.</td>
+                        </tr>
+                    <?php endif; ?>
+                    <?php foreach ($rows as $row): ?>
+                        <?php
+                        $daySinceJobFair = null;
+                        if (!empty($row['Job_Fair_Date'])) {
+                            $jobFairDate = new DateTime($row['Job_Fair_Date']);
+                            $today = new DateTime();
+                            $daySinceJobFair = (int) $jobFairDate->diff($today)->format('%a');
+                        }
+                        ?>
+                        <tr>
+                            <td><?= esc($row['Candidate_Name'] ?: 'N/A') ?></td>
+                            <td><?= esc($row['Employer_Name'] ?: 'N/A') ?></td>
+                            <td><?= esc($row['Job_Title_Name'] ?: 'N/A') ?></td>
+                            <td><span class="badge bg-secondary"><?= esc($row['Selection_Status'] ?: 'N/A') ?></span></td>
+                            <td><?= esc($row['Job_Fair_No']) ?></td>
+                            <td><?= esc($row['DWMS_ID']) ?></td>
+                            <td><?= $daySinceJobFair !== null ? $daySinceJobFair : 'N/A' ?></td>
+                            <td><?= esc($row['Offer_Letter_Generated'] ?: 'N/A') ?></td>
+                            <td><?= esc($row['Link_to_Offer_letter_verified'] ?: 'N/A') ?></td>
+                            <td><?= esc($row['Confirm_Offer_Letter_Receipt_by_Candidate'] ?: 'N/A') ?></td>
+                            <td><?= esc($row['Candidate_Joined_Status'] ?: 'N/A') ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
         </div>
-    <?php endforeach; ?>
+    </div>
 </div>
 
 <div class="card">
     <div class="card-body">
-        <h2 class="h5">Job fair vs selection status pivot</h2>
+        <h2 class="h5">Job Fair wise Status</h2>
         <div class="table-responsive">
             <table class="table table-bordered table-striped align-middle">
                 <thead>
@@ -193,7 +218,7 @@ render_header('Job fair result data');
                         <?php foreach ($pivotStatuses as $pivotStatus): ?>
                             <th><?= esc($pivotStatus) ?></th>
                         <?php endforeach; ?>
-                        <th>Row Total</th>
+                        <th>Total</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -202,17 +227,28 @@ render_header('Job fair result data');
                             <td colspan="<?= count($pivotStatuses) + 2 ?>" class="text-center text-muted">No pivot data available.</td>
                         </tr>
                     <?php endif; ?>
+                    <?php $columnTotals = array_fill_keys($pivotStatuses, 0); $grandTotal = 0; ?>
                     <?php foreach ($pivotData as $jobFairNo => $statusCounts): ?>
                         <?php $rowTotal = 0; ?>
                         <tr>
                             <td><?= esc($jobFairNo) ?></td>
                             <?php foreach ($pivotStatuses as $pivotStatus): ?>
-                                <?php $value = (int) ($statusCounts[$pivotStatus] ?? 0); $rowTotal += $value; ?>
+                                <?php $value = (int) ($statusCounts[$pivotStatus] ?? 0); $rowTotal += $value; $columnTotals[$pivotStatus] += $value; ?>
                                 <td><?= $value ?></td>
                             <?php endforeach; ?>
                             <td><strong><?= $rowTotal ?></strong></td>
                         </tr>
+                        <?php $grandTotal += $rowTotal; ?>
                     <?php endforeach; ?>
+                    <?php if ($pivotData !== []): ?>
+                        <tr>
+                            <td><strong>Total</strong></td>
+                            <?php foreach ($pivotStatuses as $pivotStatus): ?>
+                                <td><strong><?= $columnTotals[$pivotStatus] ?></strong></td>
+                            <?php endforeach; ?>
+                            <td><strong><?= $grandTotal ?></strong></td>
+                        </tr>
+                    <?php endif; ?>
                 </tbody>
             </table>
         </div>

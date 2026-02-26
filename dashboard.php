@@ -69,7 +69,7 @@ render_header('Dashboard');
 <div class="card mt-3">
     <div class="card-body">
         <div class="d-flex justify-content-between align-items-center mb-2">
-            <h2 class="h5 mb-0">Job Fair Selection Pivot</h2>
+            <h2 class="h5 mb-0">Job Fair wise Status</h2>
             <a class="btn btn-sm btn-outline-primary" href="/job_fair_results.php">Open Job fair result data</a>
         </div>
         <div class="table-responsive">
@@ -80,24 +80,35 @@ render_header('Dashboard');
                         <?php foreach ($pivotStatuses as $pivotStatus): ?>
                             <th><?= esc($pivotStatus) ?></th>
                         <?php endforeach; ?>
-                        <th>Row Total</th>
+                        <th>Total</th>
                     </tr>
                 </thead>
                 <tbody>
                 <?php if ($pivotData === []): ?>
                     <tr><td colspan="<?= count($pivotStatuses) + 2 ?>" class="text-center text-muted">No job fair result data available.</td></tr>
                 <?php endif; ?>
+                <?php $columnTotals = array_fill_keys($pivotStatuses, 0); $grandTotal = 0; ?>
                 <?php foreach ($pivotData as $jobFairNo => $statusCounts): ?>
                     <?php $rowTotal = 0; ?>
                     <tr>
                         <td><?= esc($jobFairNo) ?></td>
                         <?php foreach ($pivotStatuses as $pivotStatus): ?>
-                            <?php $value = (int) ($statusCounts[$pivotStatus] ?? 0); $rowTotal += $value; ?>
+                            <?php $value = (int) ($statusCounts[$pivotStatus] ?? 0); $rowTotal += $value; $columnTotals[$pivotStatus] += $value; ?>
                             <td><?= $value ?></td>
                         <?php endforeach; ?>
                         <td><strong><?= $rowTotal ?></strong></td>
                     </tr>
+                    <?php $grandTotal += $rowTotal; ?>
                 <?php endforeach; ?>
+                <?php if ($pivotData !== []): ?>
+                    <tr>
+                        <td><strong>Total</strong></td>
+                        <?php foreach ($pivotStatuses as $pivotStatus): ?>
+                            <td><strong><?= $columnTotals[$pivotStatus] ?></strong></td>
+                        <?php endforeach; ?>
+                        <td><strong><?= $grandTotal ?></strong></td>
+                    </tr>
+                <?php endif; ?>
                 </tbody>
             </table>
         </div>
