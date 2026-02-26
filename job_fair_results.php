@@ -469,7 +469,7 @@ unset($baseParams['page'], $baseParams['candidate_call_history']);
                         <tr>
                             <td>
                                 <div><?= esc($row['Job_Fair_No'] ?: 'N/A') ?></div>
-                                <div class="small text-muted">Status: <?= esc($row['Selection_Status'] ?: 'N/A') ?></div>
+                                <div class="small text-muted">Status: <span class="status-chip <?= esc('status-' . strtolower($row['Selection_Status'] ?? '')) ?>"><?= esc($row['Selection_Status'] ?: 'N/A') ?></span></div>
                             </td>
                             <td>
                                 <div><?= esc($row['DWMS_ID'] ?: 'N/A') ?></div>
@@ -512,6 +512,62 @@ unset($baseParams['page'], $baseParams['candidate_call_history']);
 body.modal-open {
     overflow-y: auto !important;
 }
+
+.status-chip {
+    display: inline-block;
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.2;
+    border: 1px solid transparent;
+}
+
+.status-selected {
+    color: #146c43;
+    background-color: #d1e7dd;
+    border-color: #a3cfbb;
+}
+
+.status-shortlisted {
+    color: #7a3f00;
+    background-color: #ffe5cc;
+    border-color: #ffca99;
+}
+
+.status-onhold,
+.status-rejected {
+    color: #055160;
+    background-color: #cff4fc;
+    border-color: #9eeaf9;
+}
+
+.contact-hint {
+    display: block;
+    font-size: 0.72rem;
+    color: #6f42c1;
+    margin-top: 0.2rem;
+}
+
+.candidate-details-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.candidate-details-status {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    justify-content: flex-end;
+}
+
+.offer-link-open {
+    margin-left: 0.35rem;
+    text-decoration: none;
+    font-size: 0.9rem;
+}
 </style>
 
 <div class="modal fade" id="manageCandidateModal" tabindex="-1" aria-hidden="true">
@@ -525,7 +581,10 @@ body.modal-open {
                 <div class="modal-body">
                     <input type="hidden" name="candidate_id" id="modalCandidateId">
                     <div class="card mb-3">
-                        <div class="card-header">Candidate Details</div>
+                        <div class="card-header candidate-details-header">
+                            <span>Candidate Details</span>
+                            <span class="candidate-details-status" id="candidateDetailsStatus"></span>
+                        </div>
                         <div class="card-body">
                             <div class="row g-3" id="candidateDetailPanel"></div>
                         </div>
@@ -555,6 +614,48 @@ function formatLabel(fieldName) {
     return fieldName.replaceAll('_', ' ');
 }
 
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+}
+
+function normalizeStatus(value) {
+    return String(value || '').trim().toLowerCase();
+}
+
+function renderStatusChip(value) {
+    const status = String(value || '').trim();
+    if (!status) {
+        return '<span class="status-chip">N/A</span>';
+    }
+    const normalized = normalizeStatus(status);
+    return `<span class="status-chip status-${escapeHtml(normalized)}">${escapeHtml(status)}</span>`;
+}
+
+function renderDetailLabel(name) {
+    const label = formatLabel(name);
+    if (name === 'Candidate_Name' && (window.currentCandidateRow?.Candidate_Contact)) {
+        return `${label}<span class="contact-hint">Contact: ${escapeHtml(window.currentCandidateRow.Candidate_Contact)}</span>`;
+    }
+    if (name === 'Employer_Name') {
+        const spocName = window.currentCandidateRow?.Employer_SPOC_Name || '';
+        const spocMobile = window.currentCandidateRow?.Employer_SPOC_Mobile || '';
+        const spoc = [spocName, spocMobile].filter(Boolean).join(', ');
+        return spoc ? `${label}<span class="contact-hint">Employer SPOC: ${escapeHtml(spoc)}</span>` : label;
+    }
+    if (name === 'Job_Title_Name') {
+        const aggName = window.currentCandidateRow?.Aggregator_SPOC_Name || '';
+        const aggMobile = window.currentCandidateRow?.Aggregator_SPOC_Mobile || '';
+        const agg = [aggName, aggMobile].filter(Boolean).join(', ');
+        return agg ? `${label}<span class="contact-hint">Aggregator: ${escapeHtml(agg)}</span>` : label;
+    }
+    return label;
+}
+
 function enumValues(type) {
     const match = type.match(/^enum\((.+)\)$/i);
     if (!match) return [];
@@ -563,7 +664,8 @@ function enumValues(type) {
 
 function renderFieldControl(config, row) {
     const value = row[config.field_name] ?? '';
-    const labelHtml = `<label class="form-label">${formatLabel(config.field_name)}</label>`;
+    const hasOfferLink = config.field_name === 'Link_to_Offer_letter' && String(value || '').trim() !== '';
+    const labelHtml = `<label class="form-label d-flex align-items-center">${formatLabel(config.field_name)}${hasOfferLink ? `<a href="${escapeHtml(value)}" class="offer-link-open" target="_blank" rel="noopener noreferrer" title="Open offer letter in new tab">↗</a>` : ''}</label>`;
 
     if (config.field_type === 'label') {
         return `${labelHtml}<div class="form-control bg-light">${value || 'N/A'}</div>`;
@@ -584,8 +686,10 @@ function renderFieldControl(config, row) {
 }
 
 function renderPanels(row) {
+    window.currentCandidateRow = row;
     const dynamicPanels = document.getElementById('dynamicPanels');
     const detailPanel = document.getElementById('candidateDetailPanel');
+    const candidateDetailsStatus = document.getElementById('candidateDetailsStatus');
 
     const details = [
         ['Job_Fair_No', row.Job_Fair_No],
@@ -603,8 +707,15 @@ function renderPanels(row) {
     ];
 
     detailPanel.innerHTML = details
-        .map(([name, value]) => `<div class="col-12 col-md-4"><label class="form-label text-muted small">${formatLabel(name)}</label><div class="form-control bg-light">${value || 'N/A'}</div></div>`)
+        .map(([name, value]) => `<div class="col-12 col-md-4"><label class="form-label text-muted small">${renderDetailLabel(name)}</label><div class="form-control bg-light">${escapeHtml(value || 'N/A')}</div></div>`)
         .join('');
+
+    if (candidateDetailsStatus) {
+        candidateDetailsStatus.innerHTML = `
+            <span title="Selection Status">Selection: ${renderStatusChip(row.Selection_Status)}</span>
+            <span title="Shortlist Candidate Status">Shortlist: ${renderStatusChip(row.Shortlist_Candidate_Status)}</span>
+        `;
+    }
 
     const availablePanels = row.Selection_Status === 'Selected'
         ? ['Selected', 'Call History']
