@@ -5,6 +5,22 @@ require_auth();
 
 $user = current_user();
 
+db()->exec(
+    "CREATE TABLE IF NOT EXISTS candidate_call_history (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        candidate_id INT NOT NULL,
+        stage ENUM('Employer Connect','Candidate Connect') NOT NULL,
+        call_datetime DATETIME NOT NULL,
+        call_status ENUM('Attended','Not attended','Invalid number') NOT NULL,
+        call_remarks TEXT,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_candidate_call_history_candidate_id (candidate_id),
+        CONSTRAINT fk_candidate_call_history_candidate
+            FOREIGN KEY (candidate_id) REFERENCES job_fair_result(id)
+            ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+);
+
 $editableFieldConfig = [
     [
         'panel_label' => 'Shortlist/Onhold',
@@ -229,11 +245,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $updateStmt = db()->prepare($updateSql);
             $updateStmt->execute($updateValues);
         }
+
+        $callHistoryStage = trim((string) ($_POST['call_history_stage'] ?? ''));
+        $callHistoryDateTime = trim((string) ($_POST['call_history_call_datetime'] ?? ''));
+        $callHistoryStatus = trim((string) ($_POST['call_history_call_status'] ?? ''));
+        $callHistoryRemarks = trim((string) ($_POST['call_history_call_remarks'] ?? ''));
+
+        if ($callHistoryStage !== '' && $callHistoryStatus !== '' && $callHistoryDateTime !== '') {
+            $callHistoryStmt = db()->prepare(
+                'INSERT INTO candidate_call_history (candidate_id, stage, call_datetime, call_status, call_remarks) VALUES (?, ?, ?, ?, ?)'
+            );
+            $callHistoryStmt->execute([
+                $candidateId,
+                $callHistoryStage,
+                str_replace('T', ' ', $callHistoryDateTime),
+                $callHistoryStatus,
+                $callHistoryRemarks === '' ? null : $callHistoryRemarks,
+            ]);
+        }
     }
 
     $queryString = $_SERVER['QUERY_STRING'] ?? '';
     $redirectTarget = '/job_fair_results.php' . ($queryString !== '' ? ('?' . $queryString) : '');
     header('Location: ' . $redirectTarget);
+    exit;
+}
+
+if (isset($_GET['candidate_call_history'])) {
+    $candidateId = (int) ($_GET['candidate_call_history'] ?? 0);
+    $historyStmt = db()->prepare('SELECT id, stage, call_datetime, call_status, call_remarks FROM candidate_call_history WHERE candidate_id = ? ORDER BY call_datetime DESC, id DESC');
+    $historyStmt->execute([$candidateId]);
+
+    header('Content-Type: application/json');
+    echo json_encode($historyStmt->fetchAll(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit;
 }
 
@@ -243,6 +287,8 @@ $employerNameFilter = trim($_GET['employer_name'] ?? '');
 $crmMemberFilter = trim($_GET['crm_member'] ?? '');
 $dsmMember1Filter = trim($_GET['dsm_member_1'] ?? '');
 $dsmMember2Filter = trim($_GET['dsm_member_2'] ?? '');
+$page = max((int) ($_GET['page'] ?? 1), 1);
+$perPage = 25;
 
 $selectionStatuses = db()->query("SELECT DISTINCT Selection_Status FROM job_fair_result WHERE Selection_Status IS NOT NULL AND Selection_Status <> '' ORDER BY Selection_Status")->fetchAll();
 $jobFairNos = db()->query("SELECT DISTINCT Job_Fair_No FROM job_fair_result WHERE Job_Fair_No IS NOT NULL AND Job_Fair_No <> '' ORDER BY Job_Fair_No")->fetchAll();
@@ -251,37 +297,44 @@ $crmMembers = db()->query("SELECT DISTINCT CRM_Member FROM job_fair_result WHERE
 $dsmMember1s = db()->query("SELECT DISTINCT DSM_Member_1 FROM job_fair_result WHERE DSM_Member_1 IS NOT NULL AND DSM_Member_1 <> '' ORDER BY DSM_Member_1")->fetchAll();
 $dsmMember2s = db()->query("SELECT DISTINCT DSM_Member_2 FROM job_fair_result WHERE DSM_Member_2 IS NOT NULL AND DSM_Member_2 <> '' ORDER BY DSM_Member_2")->fetchAll();
 
-$sql = 'SELECT * FROM job_fair_result WHERE 1=1';
+$whereSql = ' FROM job_fair_result WHERE 1=1';
 $params = [];
 
 if ($selectionStatusFilter !== '') {
-    $sql .= ' AND Selection_Status = ?';
+    $whereSql .= ' AND Selection_Status = ?';
     $params[] = $selectionStatusFilter;
 }
 if ($jobFairNoFilter !== '') {
-    $sql .= ' AND Job_Fair_No = ?';
+    $whereSql .= ' AND Job_Fair_No = ?';
     $params[] = $jobFairNoFilter;
 }
 if ($employerNameFilter !== '') {
-    $sql .= ' AND Employer_Name = ?';
+    $whereSql .= ' AND Employer_Name = ?';
     $params[] = $employerNameFilter;
 }
 if ($crmMemberFilter !== '') {
-    $sql .= ' AND CRM_Member = ?';
+    $whereSql .= ' AND CRM_Member = ?';
     $params[] = $crmMemberFilter;
 }
 if ($dsmMember1Filter !== '') {
-    $sql .= ' AND DSM_Member_1 = ?';
+    $whereSql .= ' AND DSM_Member_1 = ?';
     $params[] = $dsmMember1Filter;
 }
 if ($dsmMember2Filter !== '') {
-    $sql .= ' AND DSM_Member_2 = ?';
+    $whereSql .= ' AND DSM_Member_2 = ?';
     $params[] = $dsmMember2Filter;
 }
+$countStmt = db()->prepare('SELECT COUNT(*)' . $whereSql);
+$countStmt->execute($params);
+$totalRecords = (int) $countStmt->fetchColumn();
+$totalPages = max((int) ceil($totalRecords / $perPage), 1);
+$page = min($page, $totalPages);
+$offset = ($page - 1) * $perPage;
 
-$sql .= ' ORDER BY Data_uploaded_date DESC, id DESC';
+$sql = 'SELECT *' . $whereSql . ' ORDER BY Data_uploaded_date DESC, id DESC LIMIT ? OFFSET ?';
 $stmt = db()->prepare($sql);
-$stmt->execute($params);
+$queryParams = [...$params, $perPage, $offset];
+$stmt->execute($queryParams);
 $rows = $stmt->fetchAll();
 
 render_header('Job fair result data');
@@ -292,9 +345,27 @@ render_header('Job fair result data');
         <?php if ($user['role'] === 'administrator'): ?>
             <a class="btn btn-sm btn-outline-primary" href="/job_fair_result_upload.php">Upload CSV</a>
         <?php endif; ?>
-        <span class="badge bg-primary-subtle text-primary-emphasis">Records: <?= count($rows) ?></span>
+        <span class="badge bg-primary-subtle text-primary-emphasis">Records: <?= $totalRecords ?></span>
     </div>
 </div>
+
+<?php
+$baseParams = $_GET;
+unset($baseParams['page'], $baseParams['candidate_call_history']);
+?>
+
+<?php if ($totalPages > 1): ?>
+    <nav aria-label="Job fair result pagination" class="mb-4">
+        <ul class="pagination">
+            <?php for ($p = 1; $p <= $totalPages; $p++): ?>
+                <?php $pageUrl = '/job_fair_results.php?' . http_build_query([...$baseParams, 'page' => $p]); ?>
+                <li class="page-item <?= $p === $page ? 'active' : '' ?>">
+                    <a class="page-link" href="<?= esc($pageUrl) ?>"><?= $p ?></a>
+                </li>
+            <?php endfor; ?>
+        </ul>
+    </nav>
+<?php endif; ?>
 
 <form method="get" class="card mb-4">
     <div class="card-body">
@@ -472,6 +543,8 @@ body.modal-open {
 
 <script>
 const fieldConfig = <?= json_encode($editableFieldConfig, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+const callHistoryStageOptions = ['Employer Connect', 'Candidate Connect'];
+const callHistoryStatusOptions = ['Attended', 'Not attended', 'Invalid number'];
 
 function toInputDatetime(value) {
     if (!value) return '';
@@ -534,8 +607,8 @@ function renderPanels(row) {
         .join('');
 
     const availablePanels = row.Selection_Status === 'Selected'
-        ? ['Selected']
-        : ['Shortlist/Onhold', 'Selected'];
+        ? ['Selected', 'Call History']
+        : ['Shortlist/Onhold', 'Selected', 'Call History'];
 
     const panelTabs = availablePanels.map((panel, index) => `
         <li class="nav-item" role="presentation">
@@ -545,6 +618,61 @@ function renderPanels(row) {
 
     const panelBodies = availablePanels.map((panel, index) => {
         const panelKey = panel.replace(/[^a-zA-Z0-9]/g, '');
+        if (panel === 'Call History') {
+            return `
+                <div class="tab-pane fade ${index === 0 ? 'show active' : ''}" id="panel-${panelKey}">
+                    <div class="card mb-3">
+                        <div class="card-header">Add Call Detail</div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-12 col-md-4">
+                                    <label class="form-label">Stage</label>
+                                    <select class="form-select" name="call_history_stage">
+                                        <option value="">Select</option>
+                                        ${callHistoryStageOptions.map((option) => `<option value="${option}">${option}</option>`).join('')}
+                                    </select>
+                                </div>
+                                <div class="col-12 col-md-4">
+                                    <label class="form-label">Call Date time</label>
+                                    <input type="datetime-local" class="form-control" name="call_history_call_datetime" value="${toInputDatetime(new Date().toISOString().slice(0, 19).replace('T', ' '))}" readonly>
+                                </div>
+                                <div class="col-12 col-md-4">
+                                    <label class="form-label">Call Status</label>
+                                    <select class="form-select" name="call_history_call_status">
+                                        <option value="">Select</option>
+                                        ${callHistoryStatusOptions.map((option) => `<option value="${option}">${option}</option>`).join('')}
+                                    </select>
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label">Call Remarks</label>
+                                    <textarea class="form-control" name="call_history_call_remarks" rows="2"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">Call History</div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-striped align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Sl no</th>
+                                            <th>Stage</th>
+                                            <th>Date time</th>
+                                            <th>Call status</th>
+                                            <th>Remarks</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="callHistoryBody"><tr><td colspan="5" class="text-center text-muted">Loading call history...</td></tr></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
         const panelFields = fieldConfig.filter((field) => field.panel_label === panel);
         const groups = [...new Set(panelFields.map((field) => field.group_label))];
 
@@ -581,11 +709,45 @@ function renderPanels(row) {
     `;
 }
 
+function renderCallHistoryRows(historyRows) {
+    const body = document.getElementById('callHistoryBody');
+    if (!body) {
+        return;
+    }
+
+    if (!historyRows.length) {
+        body.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No call history found.</td></tr>';
+        return;
+    }
+
+    body.innerHTML = historyRows.map((item, index) => `
+        <tr>
+            <td>${index + 1}</td>
+            <td>${item.stage || 'N/A'}</td>
+            <td>${item.call_datetime || 'N/A'}</td>
+            <td>${item.call_status || 'N/A'}</td>
+            <td>${item.call_remarks || 'N/A'}</td>
+        </tr>
+    `).join('');
+}
+
+function loadCallHistory(candidateId) {
+    fetch(`/job_fair_results.php?candidate_call_history=${candidateId}`)
+        .then((response) => response.json())
+        .then((historyRows) => {
+            renderCallHistoryRows(Array.isArray(historyRows) ? historyRows : []);
+        })
+        .catch(() => {
+            renderCallHistoryRows([]);
+        });
+}
+
 document.querySelectorAll('.edit-row-btn').forEach((button) => {
     button.addEventListener('click', () => {
         const row = JSON.parse(button.dataset.row);
         document.getElementById('modalCandidateId').value = row.id;
         renderPanels(row);
+        loadCallHistory(row.id);
     });
 });
 </script>

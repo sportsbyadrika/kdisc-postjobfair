@@ -107,3 +107,17 @@ CREATE TABLE IF NOT EXISTS job_fair_result (
   Shortlist_Current_Process_Status ENUM('Completed','Pending'),
   Shortlist_Candidate_Status ENUM('Shortlisted','Selected','Rejected','Onhold')
 );
+CREATE TABLE IF NOT EXISTS candidate_call_history (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  candidate_id INT NOT NULL,
+  stage ENUM('Employer Connect','Candidate Connect') NOT NULL,
+  call_datetime DATETIME NOT NULL,
+  call_status ENUM('Attended','Not attended','Invalid number') NOT NULL,
+  call_remarks TEXT,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_candidate_call_history_candidate_id (candidate_id),
+  CONSTRAINT fk_candidate_call_history_candidate
+    FOREIGN KEY (candidate_id) REFERENCES job_fair_result(id)
+    ON DELETE CASCADE
+);
+
