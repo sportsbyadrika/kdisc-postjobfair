@@ -15,11 +15,11 @@ function render_header(string $title): void
     <link rel="stylesheet" href="/assets/css/app.css">
 </head>
 <body class="d-flex flex-column min-vh-100">
-<nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
+<nav class="navbar navbar-expand-lg navbar-light navbar-silver shadow-sm">
     <div class="container-fluid">
         <a class="navbar-brand d-flex align-items-center gap-2" href="/dashboard.php">
             <span class="brand-icon">🚀</span>
-            <span>Activity CRM Tracker</span>
+            <span>Job Fair Status Tracker</span>
         </a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-controls="mainNav" aria-expanded="false" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
@@ -66,7 +66,7 @@ function render_footer(): void
     ?>
 </main>
 <footer class="bg-light border-top py-3 mt-auto">
-    <div class="container text-center text-muted small">© <?= date('Y') ?> Activity CRM Tracker</div>
+    <div class="container text-center text-muted small">© <?= date('Y') ?> Job Fair Status Tracker</div>
 </footer>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
