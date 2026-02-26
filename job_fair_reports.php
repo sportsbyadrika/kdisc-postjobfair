@@ -12,7 +12,7 @@ function fetch_grouped_status_counts(string $selectColumns, string $groupByColum
         COUNT(*) AS total_count
     FROM job_fair_result
     GROUP BY $groupByColumns
-    ORDER BY $groupByColumns";
+    ORDER BY selected_count DESC, shortlisted_count DESC, on_hold_count DESC, total_count DESC, $groupByColumns";
 
     return db()->query($sql)->fetchAll();
 }
