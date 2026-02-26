@@ -29,6 +29,12 @@ function render_header(string $title): void
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                     <li class="nav-item"><a class="nav-link" href="/dashboard.php">Dashboard</a></li>
                     <li class="nav-item"><a class="nav-link" href="/activities.php">Activities</a></li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Job fair</a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="/job_fair_results.php">Job fair result data</a></li>
+                        </ul>
+                    </li>
                     <?php if ($user['role'] === 'administrator'): ?>
                         <li class="nav-item"><a class="nav-link" href="/users.php">Users</a></li>
                         <li class="nav-item"><a class="nav-link" href="/reports.php">Login Reports</a></li>
