@@ -5,7 +5,7 @@ require_auth();
 
 $user = current_user();
 
-db()->exec(
+db()->query(
     "CREATE TABLE IF NOT EXISTS candidate_call_history (
         id INT AUTO_INCREMENT PRIMARY KEY,
         candidate_id INT NOT NULL,
