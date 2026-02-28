@@ -5,6 +5,28 @@ require_auth();
 
 $user = current_user();
 
+db()->query(
+    "CREATE TABLE IF NOT EXISTS candidate_call_purpose (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        purpose_name VARCHAR(255) NOT NULL UNIQUE,
+        active_status TINYINT(1) NOT NULL DEFAULT 1,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+);
+
+$hasPurposeIdColumnStmt = db()->query("SHOW COLUMNS FROM candidate_call_history LIKE 'purpose_id'");
+$hasPurposeIdColumn = $hasPurposeIdColumnStmt !== false && $hasPurposeIdColumnStmt->fetch() !== false;
+if (!$hasPurposeIdColumn) {
+    db()->query("ALTER TABLE candidate_call_history ADD COLUMN purpose_id INT DEFAULT NULL AFTER stage");
+    db()->query("ALTER TABLE candidate_call_history ADD INDEX idx_candidate_call_history_purpose_id (purpose_id)");
+    db()->query(
+        "ALTER TABLE candidate_call_history
+            ADD CONSTRAINT fk_candidate_call_history_purpose
+                FOREIGN KEY (purpose_id) REFERENCES candidate_call_purpose(id)
+                ON DELETE SET NULL"
+    );
+}
+
 $crmMemberRows = db()->query(
     "SELECT DISTINCT CRM_Member
      FROM job_fair_result
@@ -37,6 +59,7 @@ $summarySql = "
         MAX(h.call_datetime) AS latest_call_datetime
     FROM candidate_call_history h
     INNER JOIN job_fair_result j ON j.id = h.candidate_id
+    LEFT JOIN candidate_call_purpose p ON p.id = h.purpose_id
     WHERE j.CRM_Member IS NOT NULL AND TRIM(j.CRM_Member) <> ''
 ";
 
@@ -56,6 +79,7 @@ $detailSql = "
         h.id,
         h.stage,
         h.call_datetime,
+        COALESCE(p.purpose_name, '') AS purpose_name,
         h.call_status,
         h.call_remarks,
         j.CRM_Member,
@@ -65,6 +89,7 @@ $detailSql = "
         j.Selection_Status
     FROM candidate_call_history h
     INNER JOIN job_fair_result j ON j.id = h.candidate_id
+    LEFT JOIN candidate_call_purpose p ON p.id = h.purpose_id
     WHERE j.CRM_Member IS NOT NULL AND TRIM(j.CRM_Member) <> ''
 ";
 
@@ -157,6 +182,7 @@ render_header('Call History Report');
                                         <th>Job Fair No</th>
                                         <th>Selection Status</th>
                                         <th>Stage</th>
+                                        <th>Purpose</th>
                                         <th>Call Status</th>
                                         <th>Remarks</th>
                                     </tr>
@@ -170,6 +196,7 @@ render_header('Call History Report');
                                             <td><?= esc((string) ($detail['Job_Fair_No'] ?? '-')) ?></td>
                                             <td><?= esc((string) ($detail['Selection_Status'] ?? '-')) ?></td>
                                             <td><?= esc((string) $detail['stage']) ?></td>
+                                            <td><?= esc((string) ($detail['purpose_name'] ?? '-')) ?></td>
                                             <td><?= esc((string) $detail['call_status']) ?></td>
                                             <td><?= esc((string) ($detail['call_remarks'] ?? '-')) ?></td>
                                         </tr>

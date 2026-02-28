@@ -6,19 +6,56 @@ require_auth();
 $user = current_user();
 
 db()->query(
+    "CREATE TABLE IF NOT EXISTS candidate_call_purpose (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        purpose_name VARCHAR(255) NOT NULL UNIQUE,
+        active_status TINYINT(1) NOT NULL DEFAULT 1,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+);
+
+db()->query(
     "CREATE TABLE IF NOT EXISTS candidate_call_history (
         id INT AUTO_INCREMENT PRIMARY KEY,
         candidate_id INT NOT NULL,
         stage ENUM('Employer Connect','Candidate Connect') NOT NULL,
+        purpose_id INT DEFAULT NULL,
         call_datetime DATETIME NOT NULL,
         call_status ENUM('Attended','Not attended','Invalid number') NOT NULL,
         call_remarks TEXT,
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         INDEX idx_candidate_call_history_candidate_id (candidate_id),
+        INDEX idx_candidate_call_history_purpose_id (purpose_id),
         CONSTRAINT fk_candidate_call_history_candidate
             FOREIGN KEY (candidate_id) REFERENCES job_fair_result(id)
-            ON DELETE CASCADE
+            ON DELETE CASCADE,
+        CONSTRAINT fk_candidate_call_history_purpose
+            FOREIGN KEY (purpose_id) REFERENCES candidate_call_purpose(id)
+            ON DELETE SET NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+);
+
+$hasPurposeIdColumnStmt = db()->query("SHOW COLUMNS FROM candidate_call_history LIKE 'purpose_id'");
+$hasPurposeIdColumn = $hasPurposeIdColumnStmt !== false && $hasPurposeIdColumnStmt->fetch() !== false;
+if (!$hasPurposeIdColumn) {
+    db()->query("ALTER TABLE candidate_call_history ADD COLUMN purpose_id INT DEFAULT NULL AFTER stage");
+    db()->query("ALTER TABLE candidate_call_history ADD INDEX idx_candidate_call_history_purpose_id (purpose_id)");
+    db()->query(
+        "ALTER TABLE candidate_call_history
+            ADD CONSTRAINT fk_candidate_call_history_purpose
+                FOREIGN KEY (purpose_id) REFERENCES candidate_call_purpose(id)
+                ON DELETE SET NULL"
+    );
+}
+
+db()->query(
+    "INSERT INTO candidate_call_purpose (purpose_name)
+     VALUES
+        ('Follow-up'),
+        ('Document Collection'),
+        ('Offer Confirmation'),
+        ('Joining Coordination')
+     ON DUPLICATE KEY UPDATE purpose_name = VALUES(purpose_name)"
 );
 
 db()->query(
@@ -53,6 +90,14 @@ function log_candidate_manage_activity(int $candidateId, string $section, string
         $details,
         $userId,
     ]);
+}
+
+$callPurposeOptions = db()->query(
+    'SELECT id, purpose_name FROM candidate_call_purpose WHERE active_status = 1 ORDER BY purpose_name'
+)->fetchAll();
+$callPurposeMap = [];
+foreach ($callPurposeOptions as $callPurposeOption) {
+    $callPurposeMap[(int) ($callPurposeOption['id'] ?? 0)] = (string) ($callPurposeOption['purpose_name'] ?? '');
 }
 
 $editableFieldConfig = [
@@ -331,17 +376,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($updateSection === 'call_history' || $updateSection === '') {
             $callHistoryStage = trim((string) ($_POST['call_history_stage'] ?? ''));
+            $callHistoryPurposeId = (int) ($_POST['call_history_purpose_id'] ?? 0);
             $callHistoryDateTime = trim((string) ($_POST['call_history_call_datetime'] ?? ''));
             $callHistoryStatus = trim((string) ($_POST['call_history_call_status'] ?? ''));
             $callHistoryRemarks = trim((string) ($_POST['call_history_call_remarks'] ?? ''));
 
+            $validCallHistoryPurposeId = null;
+            if ($callHistoryPurposeId > 0) {
+                $purposeStmt = db()->prepare('SELECT id FROM candidate_call_purpose WHERE id = ? AND active_status = 1');
+                $purposeStmt->execute([$callHistoryPurposeId]);
+                $validCallHistoryPurposeId = $purposeStmt->fetchColumn() !== false ? $callHistoryPurposeId : null;
+            }
+
             if ($callHistoryStage !== '' && $callHistoryStatus !== '' && $callHistoryDateTime !== '') {
                 $callHistoryStmt = db()->prepare(
-                    'INSERT INTO candidate_call_history (candidate_id, stage, call_datetime, call_status, call_remarks) VALUES (?, ?, ?, ?, ?)'
+                    'INSERT INTO candidate_call_history (candidate_id, stage, purpose_id, call_datetime, call_status, call_remarks) VALUES (?, ?, ?, ?, ?, ?)'
                 );
                 $callHistoryStmt->execute([
                     $candidateId,
                     $callHistoryStage,
+                    $validCallHistoryPurposeId,
                     str_replace('T', ' ', $callHistoryDateTime),
                     $callHistoryStatus,
                     $callHistoryRemarks === '' ? null : $callHistoryRemarks,
@@ -351,7 +405,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $candidateId,
                     'call_history',
                     'save',
-                    'Stage: ' . $callHistoryStage . "\nStatus: " . $callHistoryStatus . "\nDate time: " . str_replace('T', ' ', $callHistoryDateTime) . "\nRemarks: " . ($callHistoryRemarks === '' ? 'N/A' : $callHistoryRemarks),
+                    'Stage: ' . $callHistoryStage
+                    . "\nPurpose: " . (($validCallHistoryPurposeId === null) ? 'N/A' : ($callPurposeMap[$validCallHistoryPurposeId] ?? 'N/A'))
+                    . "\nStatus: " . $callHistoryStatus
+                    . "\nDate time: " . str_replace('T', ' ', $callHistoryDateTime)
+                    . "\nRemarks: " . ($callHistoryRemarks === '' ? 'N/A' : $callHistoryRemarks),
                     (int) ($user['id'] ?? 0)
                 );
             }
@@ -379,7 +437,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 if (isset($_GET['candidate_call_history'])) {
     $candidateId = (int) ($_GET['candidate_call_history'] ?? 0);
-    $historyStmt = db()->prepare('SELECT id, stage, call_datetime, call_status, call_remarks FROM candidate_call_history WHERE candidate_id = ? ORDER BY call_datetime DESC, id DESC');
+    $historyStmt = db()->prepare(
+        'SELECT h.id, h.stage, h.call_datetime, h.call_status, h.call_remarks, COALESCE(p.purpose_name, \'\') AS purpose_name
+         FROM candidate_call_history h
+         LEFT JOIN candidate_call_purpose p ON p.id = h.purpose_id
+         WHERE h.candidate_id = ?
+         ORDER BY h.call_datetime DESC, h.id DESC'
+    );
     $historyStmt->execute([$candidateId]);
 
     header('Content-Type: application/json');
@@ -910,6 +974,7 @@ body.modal-open {
 const fieldConfig = <?= json_encode($editableFieldConfig, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 const callHistoryStageOptions = ['Employer Connect', 'Candidate Connect', 'Aggregator Contact'];
 const callHistoryStatusOptions = ['Attended', 'Not attended', 'Invalid number'];
+const callHistoryPurposeOptions = <?= json_encode($callPurposeOptions, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 
 function toInputDatetime(value) {
     if (!value) return '';
@@ -1055,6 +1120,13 @@ function renderPanels(row) {
                                     </select>
                                 </div>
                                 <div class="col-12 col-md-4">
+                                    <label class="form-label">Purpose</label>
+                                    <select class="form-select" name="call_history_purpose_id">
+                                        <option value="">Select</option>
+                                        ${callHistoryPurposeOptions.map((option) => `<option value="${option.id}">${escapeHtml(option.purpose_name)}</option>`).join('')}
+                                    </select>
+                                </div>
+                                <div class="col-12 col-md-4">
                                     <label class="form-label">Call Date time</label>
                                     <input type="datetime-local" class="form-control" name="call_history_call_datetime" value="${toInputDatetime(new Date().toISOString().slice(0, 19).replace('T', ' '))}" readonly>
                                 </div>
@@ -1084,12 +1156,13 @@ function renderPanels(row) {
                                         <tr>
                                             <th>Sl no</th>
                                             <th>Stage</th>
+                                            <th>Purpose</th>
                                             <th>Date time</th>
                                             <th>Call status</th>
                                             <th>Remarks</th>
                                         </tr>
                                     </thead>
-                                    <tbody id="callHistoryBody"><tr><td colspan="5" class="text-center text-muted">Loading call history...</td></tr></tbody>
+                                    <tbody id="callHistoryBody"><tr><td colspan="6" class="text-center text-muted">Loading call history...</td></tr></tbody>
                                 </table>
                             </div>
                         </div>
@@ -1165,7 +1238,7 @@ function renderCallHistoryRows(historyRows) {
     }
 
     if (!historyRows.length) {
-        body.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No call history found.</td></tr>';
+        body.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No call history found.</td></tr>';
         return;
     }
 
@@ -1173,6 +1246,7 @@ function renderCallHistoryRows(historyRows) {
         <tr>
             <td>${index + 1}</td>
             <td>${item.stage || 'N/A'}</td>
+            <td>${item.purpose_name || 'N/A'}</td>
             <td>${item.call_datetime || 'N/A'}</td>
             <td>${item.call_status || 'N/A'}</td>
             <td>${item.call_remarks || 'N/A'}</td>
