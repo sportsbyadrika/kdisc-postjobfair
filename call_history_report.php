@@ -15,7 +15,8 @@ db()->query(
 );
 
 $hasPurposeIdColumnStmt = db()->query("SHOW COLUMNS FROM candidate_call_history LIKE 'purpose_id'");
-$hasPurposeIdColumn = $hasPurposeIdColumnStmt !== false && $hasPurposeIdColumnStmt->fetch() !== false;
+$hasPurposeIdColumnRows = $hasPurposeIdColumnStmt->fetchAll();
+$hasPurposeIdColumn = $hasPurposeIdColumnRows !== [];
 if (!$hasPurposeIdColumn) {
     db()->query("ALTER TABLE candidate_call_history ADD COLUMN purpose_id INT DEFAULT NULL AFTER stage");
     db()->query("ALTER TABLE candidate_call_history ADD INDEX idx_candidate_call_history_purpose_id (purpose_id)");
