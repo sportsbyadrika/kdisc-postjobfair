@@ -107,17 +107,39 @@ CREATE TABLE IF NOT EXISTS job_fair_result (
   Shortlist_Current_Process_Status ENUM('Completed','Pending'),
   Shortlist_Candidate_Status ENUM('Shortlisted','Selected','Rejected','Onhold')
 );
+
+CREATE TABLE IF NOT EXISTS candidate_call_purpose (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  purpose_name VARCHAR(255) NOT NULL UNIQUE,
+  active_status TINYINT(1) NOT NULL DEFAULT 1,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS candidate_call_history (
   id INT AUTO_INCREMENT PRIMARY KEY,
   candidate_id INT NOT NULL,
   stage ENUM('Employer Connect','Candidate Connect') NOT NULL,
+  purpose_id INT DEFAULT NULL,
   call_datetime DATETIME NOT NULL,
   call_status ENUM('Attended','Not attended','Invalid number') NOT NULL,
   call_remarks TEXT,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_candidate_call_history_candidate_id (candidate_id),
+  INDEX idx_candidate_call_history_purpose_id (purpose_id),
   CONSTRAINT fk_candidate_call_history_candidate
     FOREIGN KEY (candidate_id) REFERENCES job_fair_result(id)
-    ON DELETE CASCADE
+    ON DELETE CASCADE,
+  CONSTRAINT fk_candidate_call_history_purpose
+    FOREIGN KEY (purpose_id) REFERENCES candidate_call_purpose(id)
+    ON DELETE SET NULL
 );
 
+
+
+INSERT INTO candidate_call_purpose (purpose_name)
+VALUES
+  ('Follow-up'),
+  ('Document Collection'),
+  ('Offer Confirmation'),
+  ('Joining Coordination')
+ON DUPLICATE KEY UPDATE purpose_name = VALUES(purpose_name);
