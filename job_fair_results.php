@@ -425,13 +425,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($queryString !== '') {
         parse_str($queryString, $baseParams);
     }
-    if ($modalCandidateId > 0) {
-        $baseParams['manage_candidate_id'] = $modalCandidateId;
+
+    $returnTo = trim((string) ($_POST['return_to'] ?? ''));
+    if ($returnTo === 'manage_candidate.php') {
+        $manageParams = [];
+        $returnQuery = trim((string) ($_POST['return_query'] ?? ''));
+        if ($returnQuery !== '') {
+            parse_str($returnQuery, $manageParams);
+        }
+        if ($modalCandidateId > 0) {
+            $manageParams['candidate_id'] = $modalCandidateId;
+        }
+        if ($modalActiveTab !== '') {
+            $manageParams['tab'] = $modalActiveTab;
+        }
+        $redirectTarget = '/manage_candidate.php' . ($manageParams !== [] ? ('?' . http_build_query($manageParams)) : '');
+    } else {
+        if ($modalCandidateId > 0) {
+            $baseParams['manage_candidate_id'] = $modalCandidateId;
+        }
+        if ($modalActiveTab !== '') {
+            $baseParams['manage_candidate_tab'] = $modalActiveTab;
+        }
+        $redirectTarget = '/job_fair_results.php' . ($baseParams !== [] ? ('?' . http_build_query($baseParams)) : '');
     }
-    if ($modalActiveTab !== '') {
-        $baseParams['manage_candidate_tab'] = $modalActiveTab;
-    }
-    $redirectTarget = '/job_fair_results.php' . ($baseParams !== [] ? ('?' . http_build_query($baseParams)) : '');
+
     header('Location: ' . $redirectTarget);
     exit;
 }
@@ -464,6 +482,25 @@ if (isset($_GET['candidate_manage_activity_log'])) {
     exit;
 }
 
+if (isset($_GET['candidate_row'])) {
+    $candidateId = (int) ($_GET['candidate_row'] ?? 0);
+    $candidateStmt = db()->prepare('SELECT * FROM job_fair_result WHERE id = ? LIMIT 1');
+    $candidateStmt->execute([$candidateId]);
+
+    header('Content-Type: application/json');
+    echo json_encode($candidateStmt->fetch() ?: null, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    exit;
+}
+
+if (isset($_GET['manage_candidate_meta'])) {
+    header('Content-Type: application/json');
+    echo json_encode([
+        'field_config' => $editableFieldConfig,
+        'call_purpose_options' => $callPurposeOptions,
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    exit;
+}
+
 $selectionStatusFilter = trim($_GET['selection_status'] ?? '');
 $jobFairNoFilter = trim($_GET['job_fair_no'] ?? '');
 $dwmsIdFilter = trim($_GET['dwms_id'] ?? '');
@@ -484,6 +521,7 @@ $confirmOfferLetterReceiptByCandidateFilter = trim($_GET['confirm_offer_letter_r
 $candidateJoinedStatusFilter = trim($_GET['candidate_joined_status'] ?? '');
 $manageCandidateId = (int) ($_GET['manage_candidate_id'] ?? 0);
 $manageCandidateTab = trim($_GET['manage_candidate_tab'] ?? '');
+$currentQueryString = $_SERVER['QUERY_STRING'] ?? '';
 $page = max((int) ($_GET['page'] ?? 1), 1);
 $perPage = 25;
 
@@ -621,6 +659,42 @@ unset($baseParams['page'], $baseParams['candidate_call_history']);
         </ul>
     </nav>
 <?php endif; ?>
+
+<style>
+.status-chip {
+    display: inline-block;
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.2;
+    border: 1px solid transparent;
+}
+
+.status-selected {
+    color: #146c43;
+    background-color: #d1e7dd;
+    border-color: #a3cfbb;
+}
+
+.status-shortlisted {
+    color: #7a3f00;
+    background-color: #ffe5cc;
+    border-color: #ffca99;
+}
+
+.status-onhold {
+    color: #084298;
+    background-color: #cfe2ff;
+    border-color: #9ec5fe;
+}
+
+.status-rejected {
+    color: #dc3545;
+    background-color: #f8d7da;
+    border-color: #f1aeb5;
+}
+</style>
 
 <form method="get" class="card mb-4">
     <div class="card-body">
@@ -845,16 +919,13 @@ unset($baseParams['page'], $baseParams['candidate_call_history']);
                             <td><?= esc($row['Candidate_Joined_Status'] ?: 'N/A') ?></td>
                             <td><?= esc($row['Shortlist_Candidate_Status'] ?: 'N/A') ?></td>
                             <td>
-                                <button
-                                    type="button"
-                                    class="btn btn-sm btn-outline-primary edit-row-btn"
-                                    data-bs-toggle="modal"
-                                    data-bs-target="#manageCandidateModal"
-                                    data-row='<?= esc(json_encode($row, JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_TAG | JSON_HEX_QUOT)) ?>'
-                                    aria-label="Edit candidate"
+                                <a
+                                    class="btn btn-sm btn-outline-primary"
+                                    href="/manage_candidate.php?candidate_id=<?= (int) $row['id'] ?>&return_query=<?= urlencode($currentQueryString) ?>"
+                                    aria-label="Manage candidate"
                                 >
                                     ✏️
-                                </button>
+                                </a>
                             </td>
                         </tr>
                     <?php endforeach; ?>
@@ -864,496 +935,5 @@ unset($baseParams['page'], $baseParams['candidate_call_history']);
     </div>
 </div>
 
-<style>
-body.modal-open {
-    overflow-y: auto !important;
-}
 
-.status-chip {
-    display: inline-block;
-    padding: 0.2rem 0.55rem;
-    border-radius: 999px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    line-height: 1.2;
-    border: 1px solid transparent;
-}
-
-.status-selected {
-    color: #146c43;
-    background-color: #d1e7dd;
-    border-color: #a3cfbb;
-}
-
-.status-shortlisted {
-    color: #7a3f00;
-    background-color: #ffe5cc;
-    border-color: #ffca99;
-}
-
-.status-onhold {
-    color: #084298;
-    background-color: #cfe2ff;
-    border-color: #9ec5fe;
-}
-
-.status-rejected {
-    color: #dc3545;
-    background-color: #f8d7da;
-    border-color: #f1aeb5;
-}
-
-.contact-hint {
-    display: inline-block;
-    font-size: 0.7rem;
-    color: #6f42c1;
-    margin-left: 0.35rem;
-    font-weight: 500;
-}
-
-.contact-hint-employer {
-    color: #0d6efd;
-}
-
-.contact-hint-aggregator {
-    color: #d63384;
-}
-
-.candidate-details-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-}
-
-.candidate-details-status {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-    justify-content: flex-end;
-}
-
-.offer-link-open {
-    margin-left: 0.35rem;
-    text-decoration: none;
-    font-size: 0.9rem;
-}
-</style>
-
-<div class="modal fade" id="manageCandidateModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-xl">
-        <div class="modal-content">
-            <form method="post" id="manageCandidateForm">
-                <div class="modal-header">
-                    <h2 class="modal-title fs-5">Manage Candidate</h2>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <input type="hidden" name="candidate_id" id="modalCandidateId">
-                    <input type="hidden" name="modal_candidate_id" id="modalCandidateIdPersist">
-                    <input type="hidden" name="modal_active_tab" id="modalActiveTabPersist">
-                    <div class="card mb-3">
-                        <div class="card-header candidate-details-header">
-                            <span>Candidate Details</span>
-                            <span class="candidate-details-status" id="candidateDetailsStatus"></span>
-                        </div>
-                        <div class="card-body">
-                            <div class="row g-3" id="candidateDetailPanel"></div>
-                        </div>
-                    </div>
-                    <div id="dynamicPanels"></div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<script>
-const fieldConfig = <?= json_encode($editableFieldConfig, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
-const callHistoryStageOptions = ['Employer Connect', 'Candidate Connect', 'Aggregator Contact'];
-const callHistoryStatusOptions = ['Attended', 'Not attended', 'Invalid number'];
-const callHistoryPurposeOptions = <?= json_encode($callPurposeOptions, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
-
-function toInputDatetime(value) {
-    if (!value) return '';
-    return String(value).replace(' ', 'T').slice(0, 16);
-}
-
-function formatLabel(fieldName) {
-    return fieldName.replaceAll('_', ' ');
-}
-
-function escapeHtml(value) {
-    return String(value ?? '')
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-        .replaceAll('"', '&quot;')
-        .replaceAll("'", '&#039;');
-}
-
-function normalizeStatus(value) {
-    return String(value || '')
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '');
-}
-
-function renderStatusChip(value) {
-    const status = String(value || '').trim();
-    if (!status) {
-        return '<span class="status-chip">N/A</span>';
-    }
-    const normalized = normalizeStatus(status);
-    return `<span class="status-chip status-${escapeHtml(normalized)}">${escapeHtml(status)}</span>`;
-}
-
-function renderDetailLabel(name) {
-    const label = formatLabel(name);
-    if (name === 'Candidate_Name') {
-        const candidateContact = window.currentCandidateRow?.Mobile_Number || '';
-        return candidateContact ? `${label}<span class="contact-hint">(${escapeHtml(candidateContact)})</span>` : label;
-    }
-    if (name === 'Employer_Name') {
-        const spocName = window.currentCandidateRow?.Employer_SPOC_Name || '';
-        const spocMobile = window.currentCandidateRow?.Employer_SPOC_Mobile || '';
-        const spoc = [spocName, spocMobile].filter(Boolean).join(' : ');
-        return spoc ? `${label}<span class="contact-hint contact-hint-employer">(${escapeHtml(spoc)})</span>` : label;
-    }
-    if (name === 'Aggregator') {
-        const aggName = window.currentCandidateRow?.Aggregator_SPOC_Name || '';
-        const aggMobile = window.currentCandidateRow?.Aggregator_SPOC_Mobile || '';
-        const agg = [aggName, aggMobile].filter(Boolean).join(' : ');
-        return agg ? `${label}<span class="contact-hint contact-hint-aggregator">(${escapeHtml(agg)})</span>` : label;
-    }
-    return label;
-}
-
-function enumValues(type) {
-    const match = type.match(/^enum\((.+)\)$/i);
-    if (!match) return [];
-    return match[1].split(',').map((value) => value.trim().replace(/^'+|'+$/g, ''));
-}
-
-function renderFieldControl(config, row) {
-    const value = row[config.field_name] ?? '';
-    const hasOfferLink = config.field_name === 'Link_to_Offer_letter' && String(value || '').trim() !== '';
-    const labelHtml = `<label class="form-label d-flex align-items-center">${formatLabel(config.field_name)}${hasOfferLink ? `<a href="${escapeHtml(value)}" class="offer-link-open" target="_blank" rel="noopener noreferrer" title="Open offer letter in new tab">↗</a>` : ''}</label>`;
-
-    if (config.field_type === 'label') {
-        return `${labelHtml}<div class="form-control bg-light">${value || 'N/A'}</div>`;
-    }
-
-    if (config.field_type.toLowerCase().startsWith('enum(')) {
-        const options = enumValues(config.field_type)
-            .map((option) => `<option value="${option}" ${option === value ? 'selected' : ''}>${option}</option>`)
-            .join('');
-        return `${labelHtml}<select class="form-select" name="${config.field_name}"><option value="">Select</option>${options}</select>`;
-    }
-
-    if (config.field_type.toLowerCase().includes('date time')) {
-        return `${labelHtml}<input type="datetime-local" class="form-control" name="${config.field_name}" value="${toInputDatetime(value)}">`;
-    }
-
-    return `${labelHtml}<input type="text" class="form-control" name="${config.field_name}" value="${value || ''}">`;
-}
-
-function renderPanels(row) {
-    window.currentCandidateRow = row;
-    const dynamicPanels = document.getElementById('dynamicPanels');
-    const detailPanel = document.getElementById('candidateDetailPanel');
-    const candidateDetailsStatus = document.getElementById('candidateDetailsStatus');
-
-    const details = [
-        ['Job_Fair_No', row.Job_Fair_No],
-        ['Selection_Status', row.Selection_Status],
-        ['DWMS_ID', row.DWMS_ID],
-        ['Candidate_Name', row.Candidate_Name],
-        ['Employer_ID', row.Employer_ID],
-        ['Employer_Name', row.Employer_Name],
-        ['Job_Id', row.Job_Id],
-        ['Job_Title_Name', row.Job_Title_Name],
-        ['Aggregator', row.Aggregator],
-        ['CRM_Member', row.CRM_Member],
-        ['DSM_Member_1', row.DSM_Member_1],
-        ['DSM_Member_2', row.DSM_Member_2],
-        ['Job_Fair_Date', row.Job_Fair_Date]
-    ];
-
-    detailPanel.innerHTML = details
-        .map(([name, value]) => `<div class="col-12 col-md-4"><label class="form-label text-muted small">${renderDetailLabel(name)}</label><div class="form-control bg-light">${escapeHtml(value || 'N/A')}</div></div>`)
-        .join('');
-
-    if (candidateDetailsStatus) {
-        candidateDetailsStatus.innerHTML = `
-            <span title="Selection Status">Selection: ${renderStatusChip(row.Selection_Status)}</span>
-            <span title="Shortlist Candidate Status">Shortlist: ${renderStatusChip(row.Shortlist_Candidate_Status)}</span>
-        `;
-    }
-
-    const availablePanels = row.Selection_Status === 'Selected'
-        ? ['Selected', 'Call History']
-        : ['Shortlist/Onhold', 'Selected', 'Call History'];
-
-    const panelTabs = availablePanels.map((panel, index) => `
-        <li class="nav-item" role="presentation">
-            <button class="nav-link ${index === 0 ? 'active' : ''}" data-bs-toggle="tab" data-bs-target="#panel-${panel.replace(/[^a-zA-Z0-9]/g, '')}" type="button">${panel}</button>
-        </li>
-    `).join('');
-
-    const panelBodies = availablePanels.map((panel, index) => {
-        const panelKey = panel.replace(/[^a-zA-Z0-9]/g, '');
-        if (panel === 'Call History') {
-            return `
-                <div class="tab-pane fade ${index === 0 ? 'show active' : ''}" id="panel-${panelKey}">
-                    <div class="card mb-3">
-                        <div class="card-header">Add Call Detail</div>
-                        <div class="card-body">
-                            <div class="row g-3">
-                                <div class="col-12 col-md-4">
-                                    <label class="form-label">Stage</label>
-                                    <select class="form-select" name="call_history_stage">
-                                        <option value="">Select</option>
-                                        ${callHistoryStageOptions.map((option) => `<option value="${option}">${option}</option>`).join('')}
-                                    </select>
-                                </div>
-                                <div class="col-12 col-md-4">
-                                    <label class="form-label">Purpose</label>
-                                    <select class="form-select" name="call_history_purpose_id">
-                                        <option value="">Select</option>
-                                        ${callHistoryPurposeOptions.map((option) => `<option value="${option.id}">${escapeHtml(option.purpose_name)}</option>`).join('')}
-                                    </select>
-                                </div>
-                                <div class="col-12 col-md-4">
-                                    <label class="form-label">Call Date time</label>
-                                    <input type="datetime-local" class="form-control" name="call_history_call_datetime" value="${toInputDatetime(new Date().toISOString().slice(0, 19).replace('T', ' '))}" readonly>
-                                </div>
-                                <div class="col-12 col-md-4">
-                                    <label class="form-label">Call Status</label>
-                                    <select class="form-select" name="call_history_call_status">
-                                        <option value="">Select</option>
-                                        ${callHistoryStatusOptions.map((option) => `<option value="${option}">${option}</option>`).join('')}
-                                    </select>
-                                </div>
-                                <div class="col-12">
-                                    <label class="form-label">Call Remarks</label>
-                                    <textarea class="form-control" name="call_history_call_remarks" rows="2"></textarea>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="d-flex justify-content-end mb-3">
-                        <button type="submit" class="btn btn-primary btn-sm" name="update_section" value="call_history">Add Call History</button>
-                    </div>
-                    <div class="card">
-                        <div class="card-header">Call History</div>
-                        <div class="card-body">
-                            <div class="table-responsive">
-                                <table class="table table-bordered table-striped align-middle mb-0">
-                                    <thead>
-                                        <tr>
-                                            <th>Sl no</th>
-                                            <th>Stage</th>
-                                            <th>Purpose</th>
-                                            <th>Date time</th>
-                                            <th>Call status</th>
-                                            <th>Remarks</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="callHistoryBody"><tr><td colspan="6" class="text-center text-muted">Loading call history...</td></tr></tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card mt-3">
-                        <div class="card-header">Activity Log</div>
-                        <div class="card-body">
-                            <div class="table-responsive">
-                                <table class="table table-bordered table-striped align-middle mb-0">
-                                    <thead>
-                                        <tr>
-                                            <th>Sl no</th>
-                                            <th>Section</th>
-                                            <th>Action</th>
-                                            <th>Details</th>
-                                            <th>By</th>
-                                            <th>At</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="activityLogBody"><tr><td colspan="6" class="text-center text-muted">Loading activity log...</td></tr></tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-
-        const panelFields = fieldConfig.filter((field) => field.panel_label === panel);
-        const groups = [...new Set(panelFields.map((field) => field.group_label))];
-
-        const groupHtml = groups.map((group) => {
-            const fields = panelFields
-                .filter((field) => field.group_label === group)
-                .sort((a, b) => (a.row_position - b.row_position) || (a.column_position - b.column_position));
-
-            const maxColumns = Math.max(...fields.map((field) => field.column_position));
-            const colClass = `col-md-${Math.max(12 / maxColumns, 3)}`;
-
-            return `
-                <div class="card mb-3">
-                    <div class="card-header">${group}</div>
-                    <div class="card-body">
-                        <div class="row g-3">
-                            ${fields.map((field) => `<div class="col-12 ${colClass}">${renderFieldControl(field, row)}</div>`).join('')}
-                        </div>
-                    </div>
-                </div>
-            `;
-        }).join('');
-
-        const updateSection = panel === 'Shortlist/Onhold' ? 'shortlist_onhold' : 'selected';
-        return `
-            <div class="tab-pane fade ${index === 0 ? 'show active' : ''}" id="panel-${panelKey}">
-                <div class="d-flex justify-content-end mb-3">
-                    <button type="submit" class="btn btn-primary btn-sm" name="update_section" value="${updateSection}">Update ${panel} Details</button>
-                </div>
-                ${groupHtml}
-            </div>
-        `;
-    }).join('');
-
-    dynamicPanels.innerHTML = `
-        <ul class="nav nav-tabs mb-3" role="tablist">${panelTabs}</ul>
-        <div class="tab-content">${panelBodies}</div>
-    `;
-}
-
-function renderCallHistoryRows(historyRows) {
-    const body = document.getElementById('callHistoryBody');
-    if (!body) {
-        return;
-    }
-
-    if (!historyRows.length) {
-        body.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No call history found.</td></tr>';
-        return;
-    }
-
-    body.innerHTML = historyRows.map((item, index) => `
-        <tr>
-            <td>${index + 1}</td>
-            <td>${item.stage || 'N/A'}</td>
-            <td>${item.purpose_name || 'N/A'}</td>
-            <td>${item.call_datetime || 'N/A'}</td>
-            <td>${item.call_status || 'N/A'}</td>
-            <td>${item.call_remarks || 'N/A'}</td>
-        </tr>
-    `).join('');
-}
-
-function renderActivityLogRows(activityRows) {
-    const body = document.getElementById('activityLogBody');
-    if (!body) {
-        return;
-    }
-
-    if (!activityRows.length) {
-        body.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No activity log found.</td></tr>';
-        return;
-    }
-
-    body.innerHTML = activityRows.map((item, index) => `
-        <tr>
-            <td>${index + 1}</td>
-            <td>${item.activity_section || 'N/A'}</td>
-            <td>${item.activity_type || 'N/A'}</td>
-            <td>${String(item.activity_details || 'N/A').replaceAll('\n', '<br>')}</td>
-            <td>${item.created_by_name || 'N/A'}</td>
-            <td>${item.created_at || 'N/A'}</td>
-        </tr>
-    `).join('');
-}
-
-function loadActivityLog(candidateId) {
-    fetch(`/job_fair_results.php?candidate_manage_activity_log=${candidateId}`)
-        .then((response) => response.json())
-        .then((activityRows) => {
-            renderActivityLogRows(Array.isArray(activityRows) ? activityRows : []);
-        })
-        .catch(() => {
-            renderActivityLogRows([]);
-        });
-}
-
-function loadCallHistory(candidateId) {
-    fetch(`/job_fair_results.php?candidate_call_history=${candidateId}`)
-        .then((response) => response.json())
-        .then((historyRows) => {
-            renderCallHistoryRows(Array.isArray(historyRows) ? historyRows : []);
-        })
-        .catch(() => {
-            renderCallHistoryRows([]);
-        });
-}
-
-document.querySelectorAll('.edit-row-btn').forEach((button) => {
-    button.addEventListener('click', () => {
-        const row = JSON.parse(button.dataset.row);
-        document.getElementById('modalCandidateId').value = row.id;
-        document.getElementById('modalCandidateIdPersist').value = row.id;
-        renderPanels(row);
-        loadCallHistory(row.id);
-        loadActivityLog(row.id);
-    });
-});
-
-
-function getQueryParam(name) {
-    return new URLSearchParams(window.location.search).get(name) || '';
-}
-
-const manageCandidateId = Number(<?= json_encode($manageCandidateId) ?> || 0);
-const manageCandidateTab = <?= json_encode($manageCandidateTab) ?> || '';
-if (manageCandidateId > 0) {
-    const targetButton = Array.from(document.querySelectorAll('.edit-row-btn')).find((button) => {
-        try {
-            const row = JSON.parse(button.dataset.row);
-            return Number(row.id) === manageCandidateId;
-        } catch (error) {
-            return false;
-        }
-    });
-
-    if (targetButton) {
-        targetButton.click();
-        if (manageCandidateTab) {
-            setTimeout(() => {
-                const tabBtn = document.querySelector(`#manageCandidateModal [data-bs-target="#panel-${manageCandidateTab}"]`);
-                if (tabBtn) {
-                    bootstrap.Tab.getOrCreateInstance(tabBtn).show();
-                }
-            }, 50);
-        }
-    }
-}
-
-document.getElementById('manageCandidateForm').addEventListener('submit', (event) => {
-    document.getElementById('modalCandidateIdPersist').value = document.getElementById('modalCandidateId').value;
-    const submitter = event.submitter;
-    let panelKey = '';
-    const activeTab = document.querySelector('#manageCandidateModal .nav-link.active');
-    if (activeTab?.dataset?.bsTarget) {
-        panelKey = activeTab.dataset.bsTarget.replace('#panel-', '');
-    }
-    if (!panelKey && submitter?.value === 'call_history') {
-        panelKey = 'callhistory';
-    }
-    document.getElementById('modalActiveTabPersist').value = panelKey;
-});
-
-</script>
 <?php render_footer(); ?>
