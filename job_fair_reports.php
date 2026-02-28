@@ -17,6 +17,40 @@ function fetch_grouped_status_counts(string $selectColumns, string $groupByColum
     return db()->query($sql)->fetchAll();
 }
 
+function fetch_aggregator_consolidated_rows(): array
+{
+    $sql = "SELECT
+        COALESCE(NULLIF(TRIM(Aggregator), ''), 'Unknown') AS aggregator_name,
+        Job_Fair_Date,
+        SUM(CASE WHEN LOWER(REPLACE(TRIM(Selection_Status), ' ', '')) = 'selected' THEN 1 ELSE 0 END) AS selected_total,
+        SUM(CASE WHEN LOWER(REPLACE(TRIM(Selection_Status), ' ', '')) = 'selected' AND LOWER(TRIM(Offer_Letter_Generated)) = 'yes' THEN 1 ELSE 0 END) AS selected_offer_generated,
+
+        SUM(CASE WHEN LOWER(REPLACE(TRIM(Selection_Status), ' ', '')) = 'shortlisted' THEN 1 ELSE 0 END) AS shortlisted_total,
+        SUM(CASE WHEN LOWER(REPLACE(TRIM(Selection_Status), ' ', '')) = 'shortlisted' AND LOWER(REPLACE(TRIM(Shortlist_Candidate_Status), ' ', '')) = 'selected' THEN 1 ELSE 0 END) AS shortlisted_selected,
+        SUM(CASE WHEN LOWER(REPLACE(TRIM(Selection_Status), ' ', '')) = 'shortlisted' AND LOWER(TRIM(Offer_Letter_Generated)) = 'yes' THEN 1 ELSE 0 END) AS shortlisted_offer_generated,
+        SUM(CASE WHEN LOWER(REPLACE(TRIM(Selection_Status), ' ', '')) = 'shortlisted' AND LOWER(REPLACE(TRIM(Shortlist_Candidate_Status), ' ', '')) = 'shortlisted' THEN 1 ELSE 0 END) AS shortlisted_in_progress,
+        SUM(CASE WHEN LOWER(REPLACE(TRIM(Selection_Status), ' ', '')) = 'shortlisted' AND LOWER(REPLACE(TRIM(Shortlist_Candidate_Status), ' ', '')) = 'rejected' THEN 1 ELSE 0 END) AS shortlisted_rejected,
+        SUM(CASE WHEN LOWER(REPLACE(TRIM(Selection_Status), ' ', '')) = 'shortlisted' AND LOWER(TRIM(Shortlist_Preparatory_Call_Status)) = 'pending' THEN 1 ELSE 0 END) AS shortlisted_not_connected,
+
+        SUM(CASE WHEN LOWER(REPLACE(TRIM(Selection_Status), ' ', '')) = 'onhold' THEN 1 ELSE 0 END) AS on_hold_total,
+        SUM(CASE WHEN LOWER(REPLACE(TRIM(Selection_Status), ' ', '')) = 'onhold' AND LOWER(REPLACE(TRIM(Shortlist_Candidate_Status), ' ', '')) = 'selected' THEN 1 ELSE 0 END) AS on_hold_selected,
+        SUM(CASE WHEN LOWER(REPLACE(TRIM(Selection_Status), ' ', '')) = 'onhold' AND LOWER(TRIM(Offer_Letter_Generated)) = 'yes' THEN 1 ELSE 0 END) AS on_hold_offer_generated,
+        SUM(CASE WHEN LOWER(REPLACE(TRIM(Selection_Status), ' ', '')) = 'onhold' AND LOWER(REPLACE(TRIM(Shortlist_Candidate_Status), ' ', '')) = 'rejected' THEN 1 ELSE 0 END) AS on_hold_rejected
+    FROM job_fair_result
+    GROUP BY aggregator_name, Job_Fair_Date
+    ORDER BY aggregator_name ASC, Job_Fair_Date DESC";
+
+    $rows = db()->query($sql)->fetchAll();
+
+    foreach ($rows as &$row) {
+        $row['total_selected'] = (int) $row['selected_total'] + (int) $row['shortlisted_selected'] + (int) $row['on_hold_selected'];
+        $row['total_offer_generated'] = (int) $row['selected_offer_generated'] + (int) $row['shortlisted_offer_generated'] + (int) $row['on_hold_offer_generated'];
+    }
+    unset($row);
+
+    return $rows;
+}
+
 function calculate_totals(array $rows): array
 {
     return array_reduce(
@@ -38,6 +72,36 @@ function calculate_totals(array $rows): array
     );
 }
 
+function calculate_consolidated_totals(array $rows): array
+{
+    $keys = [
+        'selected_total',
+        'selected_offer_generated',
+        'shortlisted_total',
+        'shortlisted_selected',
+        'shortlisted_offer_generated',
+        'shortlisted_in_progress',
+        'shortlisted_rejected',
+        'shortlisted_not_connected',
+        'on_hold_total',
+        'on_hold_selected',
+        'on_hold_offer_generated',
+        'on_hold_rejected',
+        'total_selected',
+        'total_offer_generated',
+    ];
+
+    $totals = array_fill_keys($keys, 0);
+
+    foreach ($rows as $row) {
+        foreach ($keys as $key) {
+            $totals[$key] += (int) ($row[$key] ?? 0);
+        }
+    }
+
+    return $totals;
+}
+
 $employerAggregatorRows = fetch_grouped_status_counts(
     "COALESCE(NULLIF(TRIM(Employer_Name), ''), 'Unknown') AS employer_name,
      COALESCE(NULLIF(TRIM(Aggregator), ''), 'Unknown') AS aggregator_name",
@@ -54,13 +118,90 @@ $districtRows = fetch_grouped_status_counts(
     'district_name'
 );
 
+$aggregatorConsolidatedRows = fetch_aggregator_consolidated_rows();
+
 $employerAggregatorTotals = calculate_totals($employerAggregatorRows);
 $aggregatorTotals = calculate_totals($aggregatorRows);
 $districtTotals = calculate_totals($districtRows);
+$aggregatorConsolidatedTotals = calculate_consolidated_totals($aggregatorConsolidatedRows);
 
 render_header('Job fair reports');
 ?>
 <h1 class="h3 mb-4">Job fair reports</h1>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h2 class="h5">Aggregator consolidated report</h2>
+        <div class="table-responsive">
+            <table class="table table-bordered table-striped align-middle mb-0">
+                <thead>
+                <tr>
+                    <th>Aggregator</th>
+                    <th>Job fair date</th>
+                    <th>Selected (Total)</th>
+                    <th>Selected - Offer letter generated</th>
+                    <th>Shortlisted (Total)</th>
+                    <th>Shortlisted - Selected</th>
+                    <th>Shortlisted - Offer letter generated</th>
+                    <th>Shortlisted - In progress</th>
+                    <th>Shortlisted - Rejected</th>
+                    <th>Shortlisted - Not connected (Pending)</th>
+                    <th>On hold (Total)</th>
+                    <th>On hold - Selected</th>
+                    <th>On hold - Offer letter generated</th>
+                    <th>On hold - Rejected</th>
+                    <th>Total selected</th>
+                    <th>Total offer letter generated</th>
+                </tr>
+                </thead>
+                <tbody>
+                <?php if ($aggregatorConsolidatedRows === []): ?>
+                    <tr><td colspan="16" class="text-center text-muted">No data available.</td></tr>
+                <?php endif; ?>
+                <?php foreach ($aggregatorConsolidatedRows as $row): ?>
+                    <tr>
+                        <td><?= esc($row['aggregator_name']) ?></td>
+                        <td><?= esc($row['Job_Fair_Date'] ?: '-') ?></td>
+                        <td><?= (int) $row['selected_total'] ?></td>
+                        <td><?= (int) $row['selected_offer_generated'] ?></td>
+                        <td><?= (int) $row['shortlisted_total'] ?></td>
+                        <td><?= (int) $row['shortlisted_selected'] ?></td>
+                        <td><?= (int) $row['shortlisted_offer_generated'] ?></td>
+                        <td><?= (int) $row['shortlisted_in_progress'] ?></td>
+                        <td><?= (int) $row['shortlisted_rejected'] ?></td>
+                        <td><?= (int) $row['shortlisted_not_connected'] ?></td>
+                        <td><?= (int) $row['on_hold_total'] ?></td>
+                        <td><?= (int) $row['on_hold_selected'] ?></td>
+                        <td><?= (int) $row['on_hold_offer_generated'] ?></td>
+                        <td><?= (int) $row['on_hold_rejected'] ?></td>
+                        <td><strong><?= (int) $row['total_selected'] ?></strong></td>
+                        <td><strong><?= (int) $row['total_offer_generated'] ?></strong></td>
+                    </tr>
+                <?php endforeach; ?>
+                <?php if ($aggregatorConsolidatedRows !== []): ?>
+                    <tr class="table-secondary fw-semibold">
+                        <td colspan="2">Total</td>
+                        <td><?= $aggregatorConsolidatedTotals['selected_total'] ?></td>
+                        <td><?= $aggregatorConsolidatedTotals['selected_offer_generated'] ?></td>
+                        <td><?= $aggregatorConsolidatedTotals['shortlisted_total'] ?></td>
+                        <td><?= $aggregatorConsolidatedTotals['shortlisted_selected'] ?></td>
+                        <td><?= $aggregatorConsolidatedTotals['shortlisted_offer_generated'] ?></td>
+                        <td><?= $aggregatorConsolidatedTotals['shortlisted_in_progress'] ?></td>
+                        <td><?= $aggregatorConsolidatedTotals['shortlisted_rejected'] ?></td>
+                        <td><?= $aggregatorConsolidatedTotals['shortlisted_not_connected'] ?></td>
+                        <td><?= $aggregatorConsolidatedTotals['on_hold_total'] ?></td>
+                        <td><?= $aggregatorConsolidatedTotals['on_hold_selected'] ?></td>
+                        <td><?= $aggregatorConsolidatedTotals['on_hold_offer_generated'] ?></td>
+                        <td><?= $aggregatorConsolidatedTotals['on_hold_rejected'] ?></td>
+                        <td><strong><?= $aggregatorConsolidatedTotals['total_selected'] ?></strong></td>
+                        <td><strong><?= $aggregatorConsolidatedTotals['total_offer_generated'] ?></strong></td>
+                    </tr>
+                <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
 
 <div class="card mb-3">
     <div class="card-body">
