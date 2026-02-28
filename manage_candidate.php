@@ -5,6 +5,11 @@ require_auth();
 
 $candidateId = (int) ($_GET['candidate_id'] ?? 0);
 $returnQuery = trim((string) ($_GET['return_query'] ?? ''));
+if ($returnQuery === '') {
+    $queryParams = $_GET;
+    unset($queryParams['candidate_id'], $queryParams['tab'], $queryParams['return_query']);
+    $returnQuery = $queryParams !== [] ? http_build_query($queryParams) : '';
+}
 $returnUrl = '/job_fair_results.php' . ($returnQuery !== '' ? ('?' . $returnQuery) : '');
 
 if ($candidateId <= 0) {
