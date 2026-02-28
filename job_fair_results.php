@@ -21,6 +21,40 @@ db()->query(
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
 );
 
+db()->query(
+    "CREATE TABLE IF NOT EXISTS candidate_manage_activity_log (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        candidate_id INT NOT NULL,
+        activity_section VARCHAR(50) NOT NULL,
+        activity_type VARCHAR(50) NOT NULL,
+        activity_details TEXT,
+        created_by INT DEFAULT NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_candidate_manage_activity_candidate_id (candidate_id),
+        INDEX idx_candidate_manage_activity_created_by (created_by),
+        CONSTRAINT fk_candidate_manage_activity_candidate
+            FOREIGN KEY (candidate_id) REFERENCES job_fair_result(id)
+            ON DELETE CASCADE,
+        CONSTRAINT fk_candidate_manage_activity_user
+            FOREIGN KEY (created_by) REFERENCES users(id)
+            ON DELETE SET NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+);
+
+function log_candidate_manage_activity(int $candidateId, string $section, string $type, string $details, ?int $userId): void
+{
+    $logStmt = db()->prepare(
+        'INSERT INTO candidate_manage_activity_log (candidate_id, activity_section, activity_type, activity_details, created_by) VALUES (?, ?, ?, ?, ?)'
+    );
+    $logStmt->execute([
+        $candidateId,
+        $section,
+        $type,
+        $details,
+        $userId,
+    ]);
+}
+
 $editableFieldConfig = [
     [
         'panel_label' => 'Shortlist/Onhold',
@@ -252,10 +286,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if ($setClauses !== []) {
+            $beforeStmt = db()->prepare('SELECT * FROM job_fair_result WHERE id = ?');
+            $beforeStmt->execute([$candidateId]);
+            $beforeRow = $beforeStmt->fetch() ?: [];
+
             $updateValues[] = $candidateId;
             $updateSql = 'UPDATE job_fair_result SET ' . implode(', ', $setClauses) . ' WHERE id = ?';
             $updateStmt = db()->prepare($updateSql);
             $updateStmt->execute($updateValues);
+
+            $changeLogs = [];
+            foreach ($editableFieldMap as $fieldName => $fieldConfig) {
+                if (($fieldConfig['field_type'] ?? '') === 'label') {
+                    continue;
+                }
+                $panelLabel = (string) ($fieldConfig['panel_label'] ?? '');
+                if ($updateSection === 'shortlist_onhold' && $panelLabel !== 'Shortlist/Onhold') {
+                    continue;
+                }
+                if ($updateSection === 'selected' && $panelLabel !== 'Selected') {
+                    continue;
+                }
+                if (!in_array($updateSection, ['shortlist_onhold', 'selected', ''], true)) {
+                    continue;
+                }
+
+                $oldValue = $beforeRow[$fieldName] ?? null;
+                $newValue = trim((string) ($_POST[$fieldName] ?? ''));
+                $newValue = $newValue === '' ? null : $newValue;
+                if ((string) ($oldValue ?? '') === (string) ($newValue ?? '')) {
+                    continue;
+                }
+
+                $changeLogs[] = str_replace('_', ' ', $fieldName)
+                    . ': ' . (($oldValue === null || $oldValue === '') ? 'N/A' : (string) $oldValue)
+                    . ' -> ' . (($newValue === null || $newValue === '') ? 'N/A' : (string) $newValue);
+            }
+
+            if ($changeLogs !== []) {
+                $sectionName = $updateSection === 'selected' ? 'selected' : 'shortlist_onhold';
+                log_candidate_manage_activity($candidateId, $sectionName, 'update', implode("\n", $changeLogs), (int) ($user['id'] ?? 0));
+            }
         }
 
         if ($updateSection === 'call_history' || $updateSection === '') {
@@ -275,12 +346,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $callHistoryStatus,
                     $callHistoryRemarks === '' ? null : $callHistoryRemarks,
                 ]);
+
+                log_candidate_manage_activity(
+                    $candidateId,
+                    'call_history',
+                    'save',
+                    'Stage: ' . $callHistoryStage . "\nStatus: " . $callHistoryStatus . "\nDate time: " . str_replace('T', ' ', $callHistoryDateTime) . "\nRemarks: " . ($callHistoryRemarks === '' ? 'N/A' : $callHistoryRemarks),
+                    (int) ($user['id'] ?? 0)
+                );
             }
         }
     }
 
+    $modalCandidateId = (int) ($_POST['modal_candidate_id'] ?? $candidateId);
+    $modalActiveTab = trim((string) ($_POST['modal_active_tab'] ?? ''));
+
     $queryString = $_SERVER['QUERY_STRING'] ?? '';
-    $redirectTarget = '/job_fair_results.php' . ($queryString !== '' ? ('?' . $queryString) : '');
+    $baseParams = [];
+    if ($queryString !== '') {
+        parse_str($queryString, $baseParams);
+    }
+    if ($modalCandidateId > 0) {
+        $baseParams['manage_candidate_id'] = $modalCandidateId;
+    }
+    if ($modalActiveTab !== '') {
+        $baseParams['manage_candidate_tab'] = $modalActiveTab;
+    }
+    $redirectTarget = '/job_fair_results.php' . ($baseParams !== [] ? ('?' . http_build_query($baseParams)) : '');
     header('Location: ' . $redirectTarget);
     exit;
 }
@@ -295,10 +387,23 @@ if (isset($_GET['candidate_call_history'])) {
     exit;
 }
 
+if (isset($_GET['candidate_manage_activity_log'])) {
+    $candidateId = (int) ($_GET['candidate_manage_activity_log'] ?? 0);
+    $activityStmt = db()->prepare(
+        'SELECT l.id, l.activity_section, l.activity_type, l.activity_details, l.created_at, u.name AS created_by_name FROM candidate_manage_activity_log l LEFT JOIN users u ON u.id = l.created_by WHERE l.candidate_id = ? ORDER BY l.created_at DESC, l.id DESC'
+    );
+    $activityStmt->execute([$candidateId]);
+
+    header('Content-Type: application/json');
+    echo json_encode($activityStmt->fetchAll(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    exit;
+}
+
 $selectionStatusFilter = trim($_GET['selection_status'] ?? '');
 $jobFairNoFilter = trim($_GET['job_fair_no'] ?? '');
 $dwmsIdFilter = trim($_GET['dwms_id'] ?? '');
 $candidateNameFilter = trim($_GET['candidate_name'] ?? '');
+$aggregatorFilter = trim($_GET['aggregator'] ?? '');
 $employerNameFilter = trim($_GET['employer_name'] ?? '');
 $crmMemberFilter = trim($_GET['crm_member'] ?? '');
 $dsmMember1Filter = trim($_GET['dsm_member_1'] ?? '');
@@ -312,12 +417,15 @@ $offerLetterGeneratedFilter = trim($_GET['offer_letter_generated'] ?? '');
 $linkToOfferLetterVerifiedFilter = trim($_GET['link_to_offer_letter_verified'] ?? '');
 $confirmOfferLetterReceiptByCandidateFilter = trim($_GET['confirm_offer_letter_receipt_by_candidate'] ?? '');
 $candidateJoinedStatusFilter = trim($_GET['candidate_joined_status'] ?? '');
+$manageCandidateId = (int) ($_GET['manage_candidate_id'] ?? 0);
+$manageCandidateTab = trim($_GET['manage_candidate_tab'] ?? '');
 $page = max((int) ($_GET['page'] ?? 1), 1);
 $perPage = 25;
 
 $selectionStatuses = db()->query("SELECT DISTINCT Selection_Status FROM job_fair_result WHERE Selection_Status IS NOT NULL AND Selection_Status <> '' ORDER BY Selection_Status")->fetchAll();
 $jobFairNos = db()->query("SELECT DISTINCT Job_Fair_No FROM job_fair_result WHERE Job_Fair_No IS NOT NULL AND Job_Fair_No <> '' ORDER BY Job_Fair_No")->fetchAll();
 $employerNames = db()->query("SELECT DISTINCT Employer_Name FROM job_fair_result WHERE Employer_Name IS NOT NULL AND Employer_Name <> '' ORDER BY Employer_Name")->fetchAll();
+$aggregators = db()->query("SELECT DISTINCT Aggregator FROM job_fair_result WHERE Aggregator IS NOT NULL AND Aggregator <> '' ORDER BY Aggregator")->fetchAll();
 $crmMembers = db()->query("SELECT DISTINCT CRM_Member FROM job_fair_result WHERE CRM_Member IS NOT NULL AND CRM_Member <> '' ORDER BY CRM_Member")->fetchAll();
 $dsmMember1s = db()->query("SELECT DISTINCT DSM_Member_1 FROM job_fair_result WHERE DSM_Member_1 IS NOT NULL AND DSM_Member_1 <> '' ORDER BY DSM_Member_1")->fetchAll();
 $dsmMember2s = db()->query("SELECT DISTINCT DSM_Member_2 FROM job_fair_result WHERE DSM_Member_2 IS NOT NULL AND DSM_Member_2 <> '' ORDER BY DSM_Member_2")->fetchAll();
@@ -349,6 +457,10 @@ if ($dwmsIdFilter !== '') {
 if ($candidateNameFilter !== '') {
     $whereSql .= ' AND Candidate_Name LIKE ?';
     $params[] = '%' . $candidateNameFilter . '%';
+}
+if ($aggregatorFilter !== '') {
+    $whereSql .= ' AND Aggregator = ?';
+    $params[] = $aggregatorFilter;
 }
 if ($employerNameFilter !== '') {
     $whereSql .= ' AND Employer_Name = ?';
@@ -512,6 +624,15 @@ unset($baseParams['page'], $baseParams['candidate_call_history']);
                 <input class="form-control" name="candidate_name" type="text" value="<?= esc($candidateNameFilter) ?>" placeholder="Enter candidate name">
             </div>
             <div class="col-12 col-md-4 col-lg-2">
+                <label class="form-label">Aggregator</label>
+                <select class="form-select" name="aggregator">
+                    <option value="">All</option>
+                    <?php foreach ($aggregators as $aggregator): ?>
+                        <option value="<?= esc($aggregator['Aggregator']) ?>" <?= $aggregatorFilter === $aggregator['Aggregator'] ? 'selected' : '' ?>><?= esc($aggregator['Aggregator']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="col-12 col-md-4 col-lg-2">
                 <label class="form-label">Shortlist preparatory call status</label>
                 <select class="form-select" name="shortlist_preparatory_call_status">
                     <option value="">All</option>
@@ -615,13 +736,14 @@ unset($baseParams['page'], $baseParams['candidate_call_history']);
                         <th>Offer Letter Verified</th>
                         <th>Offer Receipt Confirmed</th>
                         <th>Candidate Joined Status</th>
+                        <th>Current Status</th>
                         <th>Manage</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if ($rows === []): ?>
                         <tr>
-                            <td colspan="10" class="text-center text-muted">No results found for the selected filters.</td>
+                            <td colspan="11" class="text-center text-muted">No results found for the selected filters.</td>
                         </tr>
                     <?php endif; ?>
                     <?php foreach ($rows as $row): ?>
@@ -656,6 +778,7 @@ unset($baseParams['page'], $baseParams['candidate_call_history']);
                             <td><?= esc($row['Link_to_Offer_letter_verified'] ?: 'N/A') ?></td>
                             <td><?= esc($row['Confirm_Offer_Letter_Receipt_by_Candidate'] ?: 'N/A') ?></td>
                             <td><?= esc($row['Candidate_Joined_Status'] ?: 'N/A') ?></td>
+                            <td><?= esc($row['Shortlist_Candidate_Status'] ?: 'N/A') ?></td>
                             <td>
                                 <button
                                     type="button"
@@ -762,6 +885,8 @@ body.modal-open {
                 </div>
                 <div class="modal-body">
                     <input type="hidden" name="candidate_id" id="modalCandidateId">
+                    <input type="hidden" name="modal_candidate_id" id="modalCandidateIdPersist">
+                    <input type="hidden" name="modal_active_tab" id="modalActiveTabPersist">
                     <div class="card mb-3">
                         <div class="card-header candidate-details-header">
                             <span>Candidate Details</span>
@@ -969,6 +1094,26 @@ function renderPanels(row) {
                             </div>
                         </div>
                     </div>
+                    <div class="card mt-3">
+                        <div class="card-header">Activity Log</div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-striped align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Sl no</th>
+                                            <th>Section</th>
+                                            <th>Action</th>
+                                            <th>Details</th>
+                                            <th>By</th>
+                                            <th>At</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="activityLogBody"><tr><td colspan="6" class="text-center text-muted">Loading activity log...</td></tr></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             `;
         }
@@ -1035,6 +1180,40 @@ function renderCallHistoryRows(historyRows) {
     `).join('');
 }
 
+function renderActivityLogRows(activityRows) {
+    const body = document.getElementById('activityLogBody');
+    if (!body) {
+        return;
+    }
+
+    if (!activityRows.length) {
+        body.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No activity log found.</td></tr>';
+        return;
+    }
+
+    body.innerHTML = activityRows.map((item, index) => `
+        <tr>
+            <td>${index + 1}</td>
+            <td>${item.activity_section || 'N/A'}</td>
+            <td>${item.activity_type || 'N/A'}</td>
+            <td>${String(item.activity_details || 'N/A').replaceAll('\n', '<br>')}</td>
+            <td>${item.created_by_name || 'N/A'}</td>
+            <td>${item.created_at || 'N/A'}</td>
+        </tr>
+    `).join('');
+}
+
+function loadActivityLog(candidateId) {
+    fetch(`/job_fair_results.php?candidate_manage_activity_log=${candidateId}`)
+        .then((response) => response.json())
+        .then((activityRows) => {
+            renderActivityLogRows(Array.isArray(activityRows) ? activityRows : []);
+        })
+        .catch(() => {
+            renderActivityLogRows([]);
+        });
+}
+
 function loadCallHistory(candidateId) {
     fetch(`/job_fair_results.php?candidate_call_history=${candidateId}`)
         .then((response) => response.json())
@@ -1050,9 +1229,56 @@ document.querySelectorAll('.edit-row-btn').forEach((button) => {
     button.addEventListener('click', () => {
         const row = JSON.parse(button.dataset.row);
         document.getElementById('modalCandidateId').value = row.id;
+        document.getElementById('modalCandidateIdPersist').value = row.id;
         renderPanels(row);
         loadCallHistory(row.id);
+        loadActivityLog(row.id);
     });
 });
+
+
+function getQueryParam(name) {
+    return new URLSearchParams(window.location.search).get(name) || '';
+}
+
+const manageCandidateId = Number(<?= json_encode($manageCandidateId) ?> || 0);
+const manageCandidateTab = <?= json_encode($manageCandidateTab) ?> || '';
+if (manageCandidateId > 0) {
+    const targetButton = Array.from(document.querySelectorAll('.edit-row-btn')).find((button) => {
+        try {
+            const row = JSON.parse(button.dataset.row);
+            return Number(row.id) === manageCandidateId;
+        } catch (error) {
+            return false;
+        }
+    });
+
+    if (targetButton) {
+        targetButton.click();
+        if (manageCandidateTab) {
+            setTimeout(() => {
+                const tabBtn = document.querySelector(`#manageCandidateModal [data-bs-target="#panel-${manageCandidateTab}"]`);
+                if (tabBtn) {
+                    bootstrap.Tab.getOrCreateInstance(tabBtn).show();
+                }
+            }, 50);
+        }
+    }
+}
+
+document.getElementById('manageCandidateForm').addEventListener('submit', (event) => {
+    document.getElementById('modalCandidateIdPersist').value = document.getElementById('modalCandidateId').value;
+    const submitter = event.submitter;
+    let panelKey = '';
+    const activeTab = document.querySelector('#manageCandidateModal .nav-link.active');
+    if (activeTab?.dataset?.bsTarget) {
+        panelKey = activeTab.dataset.bsTarget.replace('#panel-', '');
+    }
+    if (!panelKey && submitter?.value === 'call_history') {
+        panelKey = 'callhistory';
+    }
+    document.getElementById('modalActiveTabPersist').value = panelKey;
+});
+
 </script>
 <?php render_footer(); ?>
