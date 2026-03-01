@@ -121,7 +121,7 @@ function loadHistory() {
 }
 
 function renderPanels(row) {
-    const details = ['Job_Fair_No','Selection_Status','DWMS_ID','Candidate_Name','Employer_ID','Employer_Name','Job_Id','Job_Title_Name','Aggregator','CRM_Member','DSM_Member_1','DSM_Member_2','Job_Fair_Date'];
+    const details = ['Job_Fair_No','Selection_Status','DWMS_ID','Candidate_Name','Employer_ID','Employer_Name','Job_Id','Job_Title_Name','Aggregator','CRM_Member','DSM_Member_1','DSM_Member_2','Category','Job_Fair_Date'];
     detailPanel.innerHTML = details.map((name) => `<div class="col-12 col-md-4"><label class="form-label text-muted small">${formatLabel(name)}</label><div class="form-control bg-light">${escapeHtml(row[name] || 'N/A')}</div></div>`).join('');
 
     const panelNames = row.Selection_Status === 'Selected' ? ['Selected', 'Call History'] : ['Shortlist/Onhold', 'Selected', 'Call History'];
