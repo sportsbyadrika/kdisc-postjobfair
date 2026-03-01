@@ -23,14 +23,19 @@ db()->query(
         call_datetime DATETIME NOT NULL,
         call_status ENUM('Attended','Not attended','Invalid number') NOT NULL,
         call_remarks TEXT,
+        created_by INT DEFAULT NULL,
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         INDEX idx_candidate_call_history_candidate_id (candidate_id),
         INDEX idx_candidate_call_history_purpose_id (purpose_id),
+        INDEX idx_candidate_call_history_created_by (created_by),
         CONSTRAINT fk_candidate_call_history_candidate
             FOREIGN KEY (candidate_id) REFERENCES job_fair_result(id)
             ON DELETE CASCADE,
         CONSTRAINT fk_candidate_call_history_purpose
             FOREIGN KEY (purpose_id) REFERENCES candidate_call_purpose(id)
+            ON DELETE SET NULL,
+        CONSTRAINT fk_candidate_call_history_created_by
+            FOREIGN KEY (created_by) REFERENCES users(id)
             ON DELETE SET NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
 );
@@ -45,6 +50,19 @@ if (!$hasPurposeIdColumn) {
         "ALTER TABLE candidate_call_history
             ADD CONSTRAINT fk_candidate_call_history_purpose
                 FOREIGN KEY (purpose_id) REFERENCES candidate_call_purpose(id)
+                ON DELETE SET NULL"
+    );
+}
+
+$hasCreatedByColumnStmt = db()->query("SHOW COLUMNS FROM candidate_call_history LIKE 'created_by'");
+$hasCreatedByColumn = $hasCreatedByColumnStmt->fetchAll() !== [];
+if (!$hasCreatedByColumn) {
+    db()->query("ALTER TABLE candidate_call_history ADD COLUMN created_by INT DEFAULT NULL AFTER call_remarks");
+    db()->query("ALTER TABLE candidate_call_history ADD INDEX idx_candidate_call_history_created_by (created_by)");
+    db()->query(
+        "ALTER TABLE candidate_call_history
+            ADD CONSTRAINT fk_candidate_call_history_created_by
+                FOREIGN KEY (created_by) REFERENCES users(id)
                 ON DELETE SET NULL"
     );
 }
@@ -398,7 +416,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($callHistoryStage !== '' && $callHistoryStatus !== '' && $callHistoryDateTime !== '') {
                 $callHistoryStmt = db()->prepare(
-                    'INSERT INTO candidate_call_history (candidate_id, stage, purpose_id, call_datetime, call_status, call_remarks) VALUES (?, ?, ?, ?, ?, ?)'
+                    'INSERT INTO candidate_call_history (candidate_id, stage, purpose_id, call_datetime, call_status, call_remarks, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)'
                 );
                 $callHistoryStmt->execute([
                     $candidateId,
@@ -407,6 +425,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     str_replace('T', ' ', $callHistoryDateTime),
                     $callHistoryStatus,
                     $callHistoryRemarks === '' ? null : $callHistoryRemarks,
+                    (int) ($user['id'] ?? 0),
                 ]);
 
                 log_candidate_manage_activity(
