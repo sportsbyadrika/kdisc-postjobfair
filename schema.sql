@@ -124,14 +124,19 @@ CREATE TABLE IF NOT EXISTS candidate_call_history (
   call_datetime DATETIME NOT NULL,
   call_status ENUM('Attended','Not attended','Invalid number') NOT NULL,
   call_remarks TEXT,
+  created_by INT DEFAULT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_candidate_call_history_candidate_id (candidate_id),
   INDEX idx_candidate_call_history_purpose_id (purpose_id),
+  INDEX idx_candidate_call_history_created_by (created_by),
   CONSTRAINT fk_candidate_call_history_candidate
     FOREIGN KEY (candidate_id) REFERENCES job_fair_result(id)
     ON DELETE CASCADE,
   CONSTRAINT fk_candidate_call_history_purpose
     FOREIGN KEY (purpose_id) REFERENCES candidate_call_purpose(id)
+    ON DELETE SET NULL,
+  CONSTRAINT fk_candidate_call_history_created_by
+    FOREIGN KEY (created_by) REFERENCES users(id)
     ON DELETE SET NULL
 );
 
