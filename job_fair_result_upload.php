@@ -25,6 +25,7 @@ $requiredColumns = [
     'CRM_Member',
     'DSM_Member_1',
     'DSM_Member_2',
+    'Category',
     'Selection_Status',
 ];
 
@@ -99,8 +100,8 @@ if (is_post()) {
                         Job_Fair_No, Job_Fair_Date, DWMS_ID, Candidate_Name, Employer_ID, Employer_Name, Job_Id, Job_Title_Name,
                         Candidate_District, Mobile_Number, EMail, SDPK, SDPK_District, Aggregator, Aggregator_SPOC_Name,
                         Aggregator_SPOC_Mobile, Employer_SPOC_Name, Employer_SPOC_Mobile, CRM_Member, DSM_Member_1,
-                        DSM_Member_2, Selection_Status, Data_uploaded_date
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())';
+                        DSM_Member_2, Category, Selection_Status, Data_uploaded_date
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())';
                     $insertStmt = db()->prepare($insertSql);
 
                     $processedRows = 0;
@@ -149,6 +150,7 @@ if (is_post()) {
                             $values['CRM_Member'],
                             $values['DSM_Member_1'],
                             $values['DSM_Member_2'],
+                            $values['Category'],
                             $values['Selection_Status'],
                         ]);
                         $insertedRows++;

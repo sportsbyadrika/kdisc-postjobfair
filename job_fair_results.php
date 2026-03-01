@@ -59,6 +59,13 @@ db()->query(
      ON DUPLICATE KEY UPDATE purpose_name = VALUES(purpose_name)"
 );
 
+
+$hasCategoryColumnStmt = db()->query("SHOW COLUMNS FROM job_fair_result LIKE 'Category'");
+$hasCategoryColumn = $hasCategoryColumnStmt->fetchAll() !== [];
+if (!$hasCategoryColumn) {
+    db()->query("ALTER TABLE job_fair_result ADD COLUMN Category VARCHAR(255) AFTER DSM_Member_2");
+}
+
 db()->query(
     "CREATE TABLE IF NOT EXISTS candidate_manage_activity_log (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -519,6 +526,7 @@ $offerLetterGeneratedFilter = trim($_GET['offer_letter_generated'] ?? '');
 $linkToOfferLetterVerifiedFilter = trim($_GET['link_to_offer_letter_verified'] ?? '');
 $confirmOfferLetterReceiptByCandidateFilter = trim($_GET['confirm_offer_letter_receipt_by_candidate'] ?? '');
 $candidateJoinedStatusFilter = trim($_GET['candidate_joined_status'] ?? '');
+$categoryFilter = trim($_GET['category'] ?? '');
 $manageCandidateId = (int) ($_GET['manage_candidate_id'] ?? 0);
 $manageCandidateTab = trim($_GET['manage_candidate_tab'] ?? '');
 $currentQueryString = $_SERVER['QUERY_STRING'] ?? '';
@@ -541,6 +549,7 @@ $offerLetterGeneratedStatuses = db()->query("SELECT DISTINCT Offer_Letter_Genera
 $linkToOfferLetterVerifiedStatuses = db()->query("SELECT DISTINCT Link_to_Offer_letter_verified FROM job_fair_result WHERE Link_to_Offer_letter_verified IS NOT NULL AND Link_to_Offer_letter_verified <> '' ORDER BY Link_to_Offer_letter_verified")->fetchAll();
 $confirmOfferLetterReceiptByCandidateStatuses = db()->query("SELECT DISTINCT Confirm_Offer_Letter_Receipt_by_Candidate FROM job_fair_result WHERE Confirm_Offer_Letter_Receipt_by_Candidate IS NOT NULL AND Confirm_Offer_Letter_Receipt_by_Candidate <> '' ORDER BY Confirm_Offer_Letter_Receipt_by_Candidate")->fetchAll();
 $candidateJoinedStatuses = db()->query("SELECT DISTINCT Candidate_Joined_Status FROM job_fair_result WHERE Candidate_Joined_Status IS NOT NULL AND Candidate_Joined_Status <> '' ORDER BY Candidate_Joined_Status")->fetchAll();
+$categories = db()->query("SELECT DISTINCT Category FROM job_fair_result WHERE Category IS NOT NULL AND Category <> '' ORDER BY Category")->fetchAll();
 
 $whereSql = ' FROM job_fair_result WHERE 1=1';
 $params = [];
@@ -616,6 +625,10 @@ if ($confirmOfferLetterReceiptByCandidateFilter !== '') {
 if ($candidateJoinedStatusFilter !== '') {
     $whereSql .= ' AND Candidate_Joined_Status = ?';
     $params[] = $candidateJoinedStatusFilter;
+}
+if ($categoryFilter !== '') {
+    $whereSql .= ' AND Category = ?';
+    $params[] = $categoryFilter;
 }
 $countStmt = db()->prepare('SELECT COUNT(*)' . $whereSql);
 $countStmt->execute($params);
@@ -840,6 +853,15 @@ unset($baseParams['page'], $baseParams['candidate_call_history']);
                     <option value="">All</option>
                     <?php foreach ($confirmOfferLetterReceiptByCandidateStatuses as $status): ?>
                         <option value="<?= esc($status['Confirm_Offer_Letter_Receipt_by_Candidate']) ?>" <?= $confirmOfferLetterReceiptByCandidateFilter === $status['Confirm_Offer_Letter_Receipt_by_Candidate'] ? 'selected' : '' ?>><?= esc($status['Confirm_Offer_Letter_Receipt_by_Candidate']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="col-12 col-md-4 col-lg-2">
+                <label class="form-label">Category</label>
+                <select class="form-select" name="category">
+                    <option value="">All</option>
+                    <?php foreach ($categories as $category): ?>
+                        <option value="<?= esc($category['Category']) ?>" <?= $categoryFilter === $category['Category'] ? 'selected' : '' ?>><?= esc($category['Category']) ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>

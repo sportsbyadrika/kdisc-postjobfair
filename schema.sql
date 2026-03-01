@@ -72,6 +72,7 @@ CREATE TABLE IF NOT EXISTS job_fair_result (
   CRM_Member VARCHAR(255),
   DSM_Member_1 VARCHAR(255),
   DSM_Member_2 VARCHAR(255),
+  Category VARCHAR(255),
   Selection_Status VARCHAR(255),
   Data_uploaded_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   First_Call_Date DATETIME,
