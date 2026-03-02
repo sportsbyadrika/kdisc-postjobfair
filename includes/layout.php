@@ -37,6 +37,7 @@ function render_header(string $title): void
                             <li><a class="dropdown-item" href="/job_fair_reports.php">Reports</a></li>
                             <?php if ($user['role'] === 'administrator'): ?>
                                 <li><a class="dropdown-item" href="/job_fair_result_upload.php">Upload job fair result CSV</a></li>
+                                <li><a class="dropdown-item" href="/job_fair_results_export.php">Download job fair result CSV</a></li>
                             <?php endif; ?>
                         </ul>
                     </li>
