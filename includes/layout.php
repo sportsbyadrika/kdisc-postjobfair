@@ -72,6 +72,22 @@ function render_footer(): void
     <div class="container text-center text-muted small">© <?= date('Y') ?> Job Fair Status Tracker</div>
 </footer>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const clearStaleBackdrop = () => {
+        if (document.querySelector('.modal.show')) {
+            return;
+        }
+
+        document.body.classList.remove('modal-open');
+        document.body.style.removeProperty('padding-right');
+        document.querySelectorAll('.modal-backdrop').forEach((backdrop) => backdrop.remove());
+    };
+
+    clearStaleBackdrop();
+    document.addEventListener('hidden.bs.modal', clearStaleBackdrop);
+});
+</script>
 </body>
 </html>
 <?php
