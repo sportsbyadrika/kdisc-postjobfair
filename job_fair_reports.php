@@ -134,7 +134,7 @@ $aggregatorOptions = fetch_distinct_values('Aggregator');
 
 $groups = [
     'Aggregator wise' => "COALESCE(NULLIF(TRIM(Aggregator), ''), 'Unknown')",
-    'District wise' => "COALESCE(NULLIF(TRIM(Candidate_District), ''), 'Unknown')",
+    'District wise' => "COALESCE(NULLIF(TRIM(SDPK_District), ''), 'Unknown')",
     'Employer wise' => "COALESCE(NULLIF(TRIM(Employer_Name), ''), 'Unknown')",
 ];
 

@@ -119,7 +119,9 @@ CREATE TABLE IF NOT EXISTS candidate_call_purpose (
 CREATE TABLE IF NOT EXISTS candidate_call_history (
   id INT AUTO_INCREMENT PRIMARY KEY,
   candidate_id INT NOT NULL,
-  stage ENUM('Employer Connect','Candidate Connect') NOT NULL,
+  stage ENUM('Employer Connect','Candidate Connect','Aggregator Contact') NOT NULL,
+  call_name VARCHAR(255),
+  call_mobile VARCHAR(255),
   purpose_id INT DEFAULT NULL,
   call_datetime DATETIME NOT NULL,
   call_status ENUM('Attended','Not attended','Invalid number') NOT NULL,
