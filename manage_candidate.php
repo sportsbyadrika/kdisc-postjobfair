@@ -44,7 +44,10 @@ render_header('Manage Candidate');
     <input type="hidden" name="return_query" value="<?= esc($returnQuery) ?>">
 
     <div class="card mb-3">
-        <div class="card-header">Candidate Details</div>
+        <div class="card-header d-flex justify-content-between align-items-center gap-2 flex-wrap">
+            <span>Candidate Details</span>
+            <div id="candidateDetailStatuses" class="d-flex gap-2"></div>
+        </div>
         <div class="card-body">
             <div class="row g-3" id="candidateDetailPanel"></div>
         </div>
@@ -64,6 +67,7 @@ render_header('Manage Candidate');
 <script>
 const candidateId = <?= json_encode($candidateId) ?>;
 const detailPanel = document.getElementById('candidateDetailPanel');
+const candidateDetailStatuses = document.getElementById('candidateDetailStatuses');
 const dynamicPanels = document.getElementById('dynamicPanels');
 const activeTabInput = document.getElementById('activeTabInput');
 
@@ -96,6 +100,12 @@ function enumValues(type) {
     const m = String(type || '').match(/^enum\((.+)\)$/i);
     if (!m) return [];
     return m[1].split(',').map((v) => v.trim().replace(/^'+|'+$/g, ''));
+}
+
+function statusChip(label, value) {
+    const normalizedValue = String(value || '').trim();
+    const statusClass = normalizedValue ? `status-${normalizedValue.toLowerCase().replace(/[^a-z0-9]+/g, '')}` : '';
+    return `<span class="status-chip ${statusClass}">${escapeHtml(label)}: ${escapeHtml(normalizedValue || 'N/A')}</span>`;
 }
 
 function renderFieldControl(config, row) {
@@ -143,6 +153,12 @@ function renderPanels(row) {
     const candidateContact = row.Mobile_number ? `<a href="tel:${escapeHtml(row.Mobile_number)}" class="small text-primary text-decoration-none">${escapeHtml(row.Mobile_number)}</a>` : '<span class="small text-muted">N/A</span>';
     const employerContact = `<span class="small text-info">${escapeHtml(row.Employer_SPOC_Name || 'N/A')} • ${row.Employer_SPOC_Mobile ? `<a href="tel:${escapeHtml(row.Employer_SPOC_Mobile)}" class="small text-primary text-decoration-none">${escapeHtml(row.Employer_SPOC_Mobile)}</a>` : '<span class="small text-muted">N/A</span>'}</span>`;
     const aggregatorContact = `<span class="small text-success">${escapeHtml(row.Aggregator_SPOC_Name || 'N/A')} • ${row.Aggregator_Spoc_mobile ? `<a href="tel:${escapeHtml(row.Aggregator_Spoc_mobile)}" class="small text-primary text-decoration-none">${escapeHtml(row.Aggregator_Spoc_mobile)}</a>` : '<span class="small text-muted">N/A</span>'}</span>`;
+
+    candidateDetailStatuses.innerHTML = [
+        statusChip('SHORTLISTED', row.Shortlist_Candidate_Status),
+        statusChip('SELECTED', row.Selection_Status)
+    ].join('');
+
     detailPanel.innerHTML = `
         <div class="col-12 col-md-4"><label class="form-label text-muted small">Candidate Name <span class="ms-1">${candidateContact}</span></label><div class="form-control bg-light">${escapeHtml(row.Candidate_Name || 'N/A')}</div></div>
         <div class="col-12 col-md-4"><label class="form-label text-muted small">Employer Name <span class="ms-1">${employerContact}</span></label><div class="form-control bg-light">${escapeHtml(row.Employer_Name || 'N/A')}</div></div>
