@@ -150,13 +150,15 @@ function loadHistory() {
 
 function renderPanels(row) {
     const details = ['Job_Fair_No','Selection_Status','DWMS_ID','Employer_ID','Job_Id','Job_Title_Name','CRM_Member','DSM_Member_1','DSM_Member_2','Category','Job_Fair_Date'];
-    const candidateContact = row.Mobile_number ? `<a href="tel:${escapeHtml(row.Mobile_number)}" class="small text-primary text-decoration-none">${escapeHtml(row.Mobile_number)}</a>` : '<span class="small text-muted">N/A</span>';
+    const candidateMobile = row.Mobile_Number || row.Mobile_number || '';
+    const candidateContact = candidateMobile ? `<a href="tel:${escapeHtml(candidateMobile)}" class="small text-primary text-decoration-none">${escapeHtml(candidateMobile)}</a>` : '<span class="small text-muted">N/A</span>';
     const employerContact = `<span class="small text-info">${escapeHtml(row.Employer_SPOC_Name || 'N/A')} • ${row.Employer_SPOC_Mobile ? `<a href="tel:${escapeHtml(row.Employer_SPOC_Mobile)}" class="small text-primary text-decoration-none">${escapeHtml(row.Employer_SPOC_Mobile)}</a>` : '<span class="small text-muted">N/A</span>'}</span>`;
-    const aggregatorContact = `<span class="small text-success">${escapeHtml(row.Aggregator_SPOC_Name || 'N/A')} • ${row.Aggregator_Spoc_mobile ? `<a href="tel:${escapeHtml(row.Aggregator_Spoc_mobile)}" class="small text-primary text-decoration-none">${escapeHtml(row.Aggregator_Spoc_mobile)}</a>` : '<span class="small text-muted">N/A</span>'}</span>`;
+    const aggregatorSpocMobile = row.Aggregator_SPOC_Mobile || row.Aggregator_Spoc_mobile || '';
+    const aggregatorContact = `<span class="small text-success">${escapeHtml(row.Aggregator_SPOC_Name || 'N/A')} • ${aggregatorSpocMobile ? `<a href="tel:${escapeHtml(aggregatorSpocMobile)}" class="small text-primary text-decoration-none">${escapeHtml(aggregatorSpocMobile)}</a>` : '<span class="small text-muted">N/A</span>'}</span>`;
 
     candidateDetailStatuses.innerHTML = [
-        statusChip('SHORTLISTED', row.Shortlist_Candidate_Status),
-        statusChip('SELECTED', row.Selection_Status)
+        statusChip('Job Fair Status', row.Selection_Status),
+        statusChip('Final Status', row.Shortlist_Candidate_Status)
     ].join('');
 
     detailPanel.innerHTML = `
