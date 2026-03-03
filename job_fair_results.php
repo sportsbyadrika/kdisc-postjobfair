@@ -18,7 +18,9 @@ db()->query(
     "CREATE TABLE IF NOT EXISTS candidate_call_history (
         id INT AUTO_INCREMENT PRIMARY KEY,
         candidate_id INT NOT NULL,
-        stage ENUM('Employer Connect','Candidate Connect') NOT NULL,
+        stage ENUM('Employer Connect','Candidate Connect','Aggregator Contact') NOT NULL,
+        call_name VARCHAR(255) DEFAULT NULL,
+        call_mobile VARCHAR(255) DEFAULT NULL,
         purpose_id INT DEFAULT NULL,
         call_datetime DATETIME NOT NULL,
         call_status ENUM('Attended','Not attended','Invalid number') NOT NULL,
@@ -56,6 +58,25 @@ if (!$hasPurposeIdColumn) {
 
 $hasCreatedByColumnStmt = db()->query("SHOW COLUMNS FROM candidate_call_history LIKE 'created_by'");
 $hasCreatedByColumn = $hasCreatedByColumnStmt->fetchAll() !== [];
+$hasCallNameColumnStmt = db()->query("SHOW COLUMNS FROM candidate_call_history LIKE 'call_name'");
+$hasCallNameColumn = $hasCallNameColumnStmt->fetchAll() !== [];
+if (!$hasCallNameColumn) {
+    db()->query("ALTER TABLE candidate_call_history ADD COLUMN call_name VARCHAR(255) DEFAULT NULL AFTER call_remarks");
+}
+
+$hasCallMobileColumnStmt = db()->query("SHOW COLUMNS FROM candidate_call_history LIKE 'call_mobile'");
+$hasCallMobileColumn = $hasCallMobileColumnStmt->fetchAll() !== [];
+if (!$hasCallMobileColumn) {
+    db()->query("ALTER TABLE candidate_call_history ADD COLUMN call_mobile VARCHAR(255) DEFAULT NULL AFTER call_name");
+}
+
+$stageColumnStmt = db()->query("SHOW COLUMNS FROM candidate_call_history LIKE 'stage'");
+$stageColumnRows = $stageColumnStmt->fetchAll();
+$stageColumn = $stageColumnRows[0] ?? null;
+if ($stageColumn && strpos((string) ($stageColumn['Type'] ?? ''), 'Aggregator Contact') === false) {
+    db()->query("ALTER TABLE candidate_call_history MODIFY COLUMN stage ENUM('Employer Connect','Candidate Connect','Aggregator Contact') NOT NULL");
+}
+
 if (!$hasCreatedByColumn) {
     db()->query("ALTER TABLE candidate_call_history ADD COLUMN created_by INT DEFAULT NULL AFTER call_remarks");
     db()->query("ALTER TABLE candidate_call_history ADD INDEX idx_candidate_call_history_created_by (created_by)");
@@ -195,7 +216,7 @@ $editableFieldConfig = [
         'panel_label' => 'Selected',
         'field_name' => 'First_Call_Date',
         'field_type' => 'label',
-        'group_label' => 'First Call',
+        'group_label' => 'Employer First Call',
         'row_position' => 1,
         'column_position' => 1,
     ],
@@ -203,7 +224,7 @@ $editableFieldConfig = [
         'panel_label' => 'Selected',
         'field_name' => 'First_Call_Done',
         'field_type' => "enum('Yes','No','Pending')",
-        'group_label' => 'First Call',
+        'group_label' => 'Employer First Call',
         'row_position' => 1,
         'column_position' => 2,
     ],
@@ -402,6 +423,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($updateSection === 'call_history' || $updateSection === '') {
             $callHistoryStage = trim((string) ($_POST['call_history_stage'] ?? ''));
+            $rowStmt = db()->prepare('SELECT Candidate_Name, Mobile_number, Employer_SPOC_Name, Employer_SPOC_Mobile, Aggregator_SPOC_Name, Aggregator_Spoc_mobile FROM job_fair_result WHERE id = ? LIMIT 1');
+            $rowStmt->execute([$candidateId]);
+            $callContactRow = $rowStmt->fetch() ?: [];
+            $callName = null;
+            $callMobile = null;
+            if ($callHistoryStage === 'Employer Connect') {
+                $callName = trim((string) ($callContactRow['Employer_SPOC_Name'] ?? ''));
+                $callMobile = trim((string) ($callContactRow['Employer_SPOC_Mobile'] ?? ''));
+            } elseif ($callHistoryStage === 'Aggregator Contact') {
+                $callName = trim((string) ($callContactRow['Aggregator_SPOC_Name'] ?? ''));
+                $callMobile = trim((string) ($callContactRow['Aggregator_Spoc_mobile'] ?? ''));
+            } elseif ($callHistoryStage === 'Candidate Connect') {
+                $callName = trim((string) ($callContactRow['Candidate_Name'] ?? ''));
+                $callMobile = trim((string) ($callContactRow['Mobile_number'] ?? ''));
+            }
+            $callName = $callName === '' ? null : $callName;
+            $callMobile = $callMobile === '' ? null : $callMobile;
             $callHistoryPurposeId = (int) ($_POST['call_history_purpose_id'] ?? 0);
             $callHistoryDateTime = trim((string) ($_POST['call_history_call_datetime'] ?? ''));
             $callHistoryStatus = trim((string) ($_POST['call_history_call_status'] ?? ''));
@@ -416,7 +454,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($callHistoryStage !== '' && $callHistoryStatus !== '' && $callHistoryDateTime !== '') {
                 $callHistoryStmt = db()->prepare(
-                    'INSERT INTO candidate_call_history (candidate_id, stage, purpose_id, call_datetime, call_status, call_remarks, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)'
+                    'INSERT INTO candidate_call_history (candidate_id, stage, purpose_id, call_datetime, call_status, call_remarks, call_name, call_mobile, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
                 );
                 $callHistoryStmt->execute([
                     $candidateId,
@@ -425,6 +463,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     str_replace('T', ' ', $callHistoryDateTime),
                     $callHistoryStatus,
                     $callHistoryRemarks === '' ? null : $callHistoryRemarks,
+                    $callName,
+                    $callMobile,
                     (int) ($user['id'] ?? 0),
                 ]);
 

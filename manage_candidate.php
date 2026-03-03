@@ -73,7 +73,25 @@ let currentRow = null;
 
 function escapeHtml(value) { return String(value ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;'); }
 function formatLabel(name) { return String(name || '').replaceAll('_', ' '); }
-function toInputDatetime(value) { return value ? String(value).replace(' ', 'T').slice(0,16) : ''; }
+function toInputDatetime(value) {
+    if (!value) return '';
+    const text = String(value).replace(' ', 'T').slice(0,19);
+    const date = new Date(text);
+    if (Number.isNaN(date.getTime())) return String(value).replace(' ', 'T').slice(0,16);
+    const ist = new Date(date.getTime() + (5.5 * 60 * 60 * 1000));
+    return ist.toISOString().slice(0,16);
+}
+function formatDisplayDatetime(value) {
+    if (!value) return 'N/A';
+    const date = new Date(String(value).replace(' ', 'T'));
+    if (Number.isNaN(date.getTime())) return String(value);
+    return new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Kolkata' }).format(date) + ' IST';
+}
+function nowIstInput() {
+    const now = new Date();
+    const ist = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
+    return ist.toISOString().slice(0,16);
+}
 function enumValues(type) {
     const m = String(type || '').match(/^enum\((.+)\)$/i);
     if (!m) return [];
@@ -102,7 +120,7 @@ function renderCallHistoryRows(rows) {
         body.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No call history found.</td></tr>';
         return;
     }
-    body.innerHTML = rows.map((r, i) => `<tr><td>${i+1}</td><td>${escapeHtml(r.stage || 'N/A')}</td><td>${escapeHtml(r.purpose_name || 'N/A')}</td><td>${escapeHtml(r.call_datetime || 'N/A')}</td><td>${escapeHtml(r.call_status || 'N/A')}</td><td>${escapeHtml(r.call_remarks || 'N/A')}</td></tr>`).join('');
+    body.innerHTML = rows.map((r, i) => `<tr><td>${i+1}</td><td>${escapeHtml(r.stage || 'N/A')}</td><td>${escapeHtml(r.purpose_name || 'N/A')}</td><td>${escapeHtml(formatDisplayDatetime(r.call_datetime || ''))}</td><td>${escapeHtml(r.call_status || 'N/A')}</td><td>${escapeHtml(r.call_remarks || 'N/A')}</td></tr>`).join('');
 }
 
 function renderActivityRows(rows) {
@@ -112,7 +130,7 @@ function renderActivityRows(rows) {
         body.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No activity log found.</td></tr>';
         return;
     }
-    body.innerHTML = rows.map((r, i) => `<tr><td>${i+1}</td><td>${escapeHtml(r.activity_section || 'N/A')}</td><td>${escapeHtml(r.activity_type || 'N/A')}</td><td>${escapeHtml(String(r.activity_details || 'N/A')).replaceAll('\n','<br>')}</td><td>${escapeHtml(r.created_by_name || 'N/A')}</td><td>${escapeHtml(r.created_at || 'N/A')}</td></tr>`).join('');
+    body.innerHTML = rows.map((r, i) => `<tr><td>${i+1}</td><td>${escapeHtml(r.activity_section || 'N/A')}</td><td>${escapeHtml(r.activity_type || 'N/A')}</td><td>${escapeHtml(String(r.activity_details || 'N/A')).replaceAll('\n','<br>')}</td><td>${escapeHtml(r.created_by_name || 'N/A')}</td><td>${escapeHtml(formatDisplayDatetime(r.created_at || ''))}</td></tr>`).join('');
 }
 
 function loadHistory() {
@@ -121,8 +139,16 @@ function loadHistory() {
 }
 
 function renderPanels(row) {
-    const details = ['Job_Fair_No','Selection_Status','DWMS_ID','Candidate_Name','Employer_ID','Employer_Name','Job_Id','Job_Title_Name','Aggregator','CRM_Member','DSM_Member_1','DSM_Member_2','Category','Job_Fair_Date'];
-    detailPanel.innerHTML = details.map((name) => `<div class="col-12 col-md-4"><label class="form-label text-muted small">${formatLabel(name)}</label><div class="form-control bg-light">${escapeHtml(row[name] || 'N/A')}</div></div>`).join('');
+    const details = ['Job_Fair_No','Selection_Status','DWMS_ID','Employer_ID','Job_Id','Job_Title_Name','CRM_Member','DSM_Member_1','DSM_Member_2','Category','Job_Fair_Date'];
+    const candidateContact = row.Mobile_number ? `<a href="tel:${escapeHtml(row.Mobile_number)}" class="small text-primary text-decoration-none">${escapeHtml(row.Mobile_number)}</a>` : '<span class="small text-muted">N/A</span>';
+    const employerContact = `<span class="small text-info">${escapeHtml(row.Employer_SPOC_Name || 'N/A')} • ${row.Employer_SPOC_Mobile ? `<a href="tel:${escapeHtml(row.Employer_SPOC_Mobile)}" class="small text-primary text-decoration-none">${escapeHtml(row.Employer_SPOC_Mobile)}</a>` : '<span class="small text-muted">N/A</span>'}</span>`;
+    const aggregatorContact = `<span class="small text-success">${escapeHtml(row.Aggregator_SPOC_Name || 'N/A')} • ${row.Aggregator_Spoc_mobile ? `<a href="tel:${escapeHtml(row.Aggregator_Spoc_mobile)}" class="small text-primary text-decoration-none">${escapeHtml(row.Aggregator_Spoc_mobile)}</a>` : '<span class="small text-muted">N/A</span>'}</span>`;
+    detailPanel.innerHTML = `
+        <div class="col-12 col-md-4"><label class="form-label text-muted small">Candidate Name <span class="ms-1">${candidateContact}</span></label><div class="form-control bg-light">${escapeHtml(row.Candidate_Name || 'N/A')}</div></div>
+        <div class="col-12 col-md-4"><label class="form-label text-muted small">Employer Name <span class="ms-1">${employerContact}</span></label><div class="form-control bg-light">${escapeHtml(row.Employer_Name || 'N/A')}</div></div>
+        <div class="col-12 col-md-4"><label class="form-label text-muted small">Aggregator <span class="ms-1">${aggregatorContact}</span></label><div class="form-control bg-light">${escapeHtml(row.Aggregator || 'N/A')}</div></div>
+        ${details.map((name) => `<div class="col-12 col-md-4"><label class="form-label text-muted small">${formatLabel(name)}</label><div class="form-control bg-light">${escapeHtml(row[name] || 'N/A')}</div></div>`).join('')}
+    `;
 
     const panelNames = row.Selection_Status === 'Selected' ? ['Selected', 'Call History'] : ['Shortlist/Onhold', 'Selected', 'Call History'];
     const tabs = panelNames.map((p, i) => `<li class="nav-item"><button class="nav-link ${i===0?'active':''}" data-bs-toggle="tab" data-bs-target="#panel-${p.replace(/[^a-zA-Z0-9]/g,'')}" type="button">${p}</button></li>`).join('');
@@ -134,7 +160,7 @@ function renderPanels(row) {
                 <div class="card mb-3"><div class="card-header">Add Call Detail</div><div class="card-body"><div class="row g-3">
                     <div class="col-md-4"><label class="form-label">Stage</label><select class="form-select" name="call_history_stage"><option value="">Select</option><option>Employer Connect</option><option>Candidate Connect</option><option>Aggregator Contact</option></select></div>
                     <div class="col-md-4"><label class="form-label">Purpose</label><select class="form-select" name="call_history_purpose_id"><option value="">Select</option>${callHistoryPurposeOptions.map((o) => `<option value="${o.id}">${escapeHtml(o.purpose_name)}</option>`).join('')}</select></div>
-                    <div class="col-md-4"><label class="form-label">Call Date time</label><input type="datetime-local" class="form-control" name="call_history_call_datetime" value="${toInputDatetime(new Date().toISOString())}" readonly></div>
+                    <div class="col-md-4"><label class="form-label">Call Date time</label><input type="datetime-local" class="form-control" name="call_history_call_datetime" value="${nowIstInput()}" readonly></div>
                     <div class="col-md-4"><label class="form-label">Call Status</label><select class="form-select" name="call_history_call_status"><option value="">Select</option><option>Attended</option><option>Not attended</option><option>Invalid number</option></select></div>
                     <div class="col-12"><label class="form-label">Call Remarks</label><textarea class="form-control" name="call_history_call_remarks" rows="2"></textarea></div>
                 </div></div></div>

@@ -15,6 +15,7 @@ class Database
             (int) $config['port']
         );
         $this->connection->set_charset((string) $config['charset']);
+        $this->connection->query("SET time_zone = '+05:30'");
     }
 
     public function prepare(string $sql): DatabaseStatement
