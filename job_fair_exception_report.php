@@ -27,18 +27,18 @@ function build_exception_where_clause(array $filters, array &$params): string
     $conditions = [];
 
     if ($filters['aggregator'] !== '') {
-        $conditions[] = 'Aggregator = :aggregator';
-        $params['aggregator'] = $filters['aggregator'];
+        $conditions[] = 'Aggregator = ?';
+        $params[] = $filters['aggregator'];
     }
 
     if ($filters['job_fair_no'] !== '') {
-        $conditions[] = 'Job_Fair_No = :job_fair_no';
-        $params['job_fair_no'] = $filters['job_fair_no'];
+        $conditions[] = 'Job_Fair_No = ?';
+        $params[] = $filters['job_fair_no'];
     }
 
     if ($filters['selection_status'] !== '') {
-        $conditions[] = 'Selection_Status = :selection_status';
-        $params['selection_status'] = $filters['selection_status'];
+        $conditions[] = 'Selection_Status = ?';
+        $params[] = $filters['selection_status'];
     }
 
     if ($conditions === []) {
