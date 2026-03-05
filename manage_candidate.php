@@ -62,6 +62,8 @@ render_header('Manage Candidate');
 .status-shortlisted { color:#7a3f00; background:#ffe5cc; border-color:#ffca99; }
 .status-onhold { color:#084298; background:#cfe2ff; border-color:#9ec5fe; }
 .status-rejected { color:#dc3545; background:#f8d7da; border-color:#f1aeb5; }
+.offer-letter-link-icon { font-size:1rem; line-height:1; text-decoration:none; }
+.offer-letter-link-icon.disabled { opacity:0.45; pointer-events:none; cursor:not-allowed; }
 </style>
 
 <script>
@@ -110,6 +112,9 @@ function statusChip(label, value) {
 
 function renderFieldControl(config, row) {
     const value = row[config.field_name] ?? '';
+    const fieldNameNormalized = String(config.field_name || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+    const isOfferLetterField = fieldNameNormalized === 'linktoofferletter';
+
     if (config.field_type === 'label') {
         return `<label class="form-label">${formatLabel(config.field_name)}</label><div class="form-control bg-light">${escapeHtml(value || 'N/A')}</div>`;
     }
@@ -120,7 +125,38 @@ function renderFieldControl(config, row) {
     if (String(config.field_type).toLowerCase().includes('date time')) {
         return `<label class="form-label">${formatLabel(config.field_name)}</label><input class="form-control" type="datetime-local" name="${config.field_name}" value="${toInputDatetime(value)}">`;
     }
+
+    if (isOfferLetterField) {
+        const inputId = `offer-letter-link-input-${candidateId}`;
+        const iconId = `offer-letter-link-icon-${candidateId}`;
+        const safeValue = escapeHtml(value || '');
+        const canOpen = String(value || '').trim() !== '';
+        return `
+            <label class="form-label d-flex justify-content-between align-items-center">
+                <span>${formatLabel(config.field_name)}</span>
+                <a id="${iconId}" class="offer-letter-link-icon ${canOpen ? '' : 'disabled'}" href="${canOpen ? safeValue : '#'}" target="_blank" rel="noopener noreferrer" title="Open offer letter in a new tab" aria-label="Open offer letter in a new tab">🔗</a>
+            </label>
+            <input id="${inputId}" class="form-control" type="text" name="${config.field_name}" value="${safeValue}" oninput="updateOfferLetterLink('${inputId}', '${iconId}')">
+        `;
+    }
+
     return `<label class="form-label">${formatLabel(config.field_name)}</label><input class="form-control" type="text" name="${config.field_name}" value="${escapeHtml(value || '')}">`;
+}
+
+function updateOfferLetterLink(inputId, iconId) {
+    const input = document.getElementById(inputId);
+    const icon = document.getElementById(iconId);
+    if (!input || !icon) return;
+
+    const rawValue = String(input.value || '').trim();
+    if (!rawValue) {
+        icon.href = '#';
+        icon.classList.add('disabled');
+        return;
+    }
+
+    icon.href = rawValue;
+    icon.classList.remove('disabled');
 }
 
 function renderCallHistoryRows(rows) {
