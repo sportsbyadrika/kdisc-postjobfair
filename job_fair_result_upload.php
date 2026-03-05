@@ -175,6 +175,7 @@ render_header('Upload Job Fair Result CSV');
 ?>
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h3 mb-0">Upload Job Fair Result CSV</h1>
+    <a class="btn btn-outline-secondary" href="/aggregator_offer_letter_upload.php">Upload aggregator selected data</a>
 </div>
 
 <?php if ($flashMessage !== null): ?>
