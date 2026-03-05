@@ -49,11 +49,34 @@ foreach ($crmMemberRows as $crmMemberRow) {
 }
 
 $selectedMember = trim((string) ($_GET['crm_member'] ?? ''));
+$dateFrom = trim((string) ($_GET['date_from'] ?? ''));
+$dateTo = trim((string) ($_GET['date_to'] ?? ''));
+$hasDateFrom = preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateFrom) === 1;
+$hasDateTo = preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateTo) === 1;
+
+$baseConditions = ["j.CRM_Member IS NOT NULL", "TRIM(j.CRM_Member) <> ''"];
+$baseParams = [];
+if ($selectedMember !== '') {
+    $baseConditions[] = 'j.CRM_Member = ?';
+    $baseParams[] = $selectedMember;
+}
+if ($hasDateFrom) {
+    $baseConditions[] = 'h.call_datetime >= ?';
+    $baseParams[] = $dateFrom . ' 00:00:00';
+}
+if ($hasDateTo) {
+    $baseConditions[] = 'h.call_datetime <= ?';
+    $baseParams[] = $dateTo . ' 23:59:59';
+}
+$whereSql = ' WHERE ' . implode(' AND ', $baseConditions);
 
 $summarySql = "
     SELECT
         j.CRM_Member,
         COUNT(h.id) AS total_calls,
+        SUM(CASE WHEN h.stage = 'Employer Connect' THEN 1 ELSE 0 END) AS employer_connect_calls,
+        SUM(CASE WHEN h.stage = 'Candidate Connect' THEN 1 ELSE 0 END) AS candidate_connect_calls,
+        SUM(CASE WHEN h.stage = 'Aggregator Contact' THEN 1 ELSE 0 END) AS aggregator_contact_calls,
         SUM(CASE WHEN h.call_status = 'Attended' THEN 1 ELSE 0 END) AS attended_calls,
         SUM(CASE WHEN h.call_status = 'Not attended' THEN 1 ELSE 0 END) AS not_attended_calls,
         SUM(CASE WHEN h.call_status = 'Invalid number' THEN 1 ELSE 0 END) AS invalid_number_calls,
@@ -61,18 +84,12 @@ $summarySql = "
     FROM candidate_call_history h
     INNER JOIN job_fair_result j ON j.id = h.candidate_id
     LEFT JOIN candidate_call_purpose p ON p.id = h.purpose_id
-    WHERE j.CRM_Member IS NOT NULL AND TRIM(j.CRM_Member) <> ''
-";
+    " . $whereSql . "
+    GROUP BY j.CRM_Member
+    ORDER BY total_calls DESC, j.CRM_Member";
 
-$summaryParams = [];
-if ($selectedMember !== '') {
-    $summarySql .= ' AND j.CRM_Member = ?';
-    $summaryParams[] = $selectedMember;
-}
-
-$summarySql .= ' GROUP BY j.CRM_Member ORDER BY total_calls DESC, j.CRM_Member';
 $summaryStmt = db()->prepare($summarySql);
-$summaryStmt->execute($summaryParams);
+$summaryStmt->execute($baseParams);
 $summaryRows = $summaryStmt->fetchAll();
 
 $detailSql = "
@@ -91,18 +108,10 @@ $detailSql = "
     FROM candidate_call_history h
     INNER JOIN job_fair_result j ON j.id = h.candidate_id
     LEFT JOIN candidate_call_purpose p ON p.id = h.purpose_id
-    WHERE j.CRM_Member IS NOT NULL AND TRIM(j.CRM_Member) <> ''
-";
-
-$detailParams = [];
-if ($selectedMember !== '') {
-    $detailSql .= ' AND j.CRM_Member = ?';
-    $detailParams[] = $selectedMember;
-}
-
-$detailSql .= ' ORDER BY j.CRM_Member, h.call_datetime DESC, h.id DESC';
+    " . $whereSql . "
+    ORDER BY j.CRM_Member, h.call_datetime DESC, h.id DESC";
 $detailStmt = db()->prepare($detailSql);
-$detailStmt->execute($detailParams);
+$detailStmt->execute($baseParams);
 $details = $detailStmt->fetchAll();
 
 $detailsByMember = [];
@@ -118,7 +127,7 @@ render_header('Call History Report');
 <div class="card mb-3">
     <div class="card-body">
         <form method="get" class="row g-2 align-items-end">
-            <div class="col-12 col-md-6 col-lg-4">
+            <div class="col-12 col-md-4 col-lg-3">
                 <label for="crm_member" class="form-label">Filter by User</label>
                 <select id="crm_member" name="crm_member" class="form-select">
                     <option value="">All Users</option>
@@ -128,6 +137,14 @@ render_header('Call History Report');
                         </option>
                     <?php endforeach; ?>
                 </select>
+            </div>
+            <div class="col-12 col-md-4 col-lg-3">
+                <label for="date_from" class="form-label">Date from</label>
+                <input type="date" id="date_from" name="date_from" class="form-control" value="<?= esc($hasDateFrom ? $dateFrom : '') ?>">
+            </div>
+            <div class="col-12 col-md-4 col-lg-3">
+                <label for="date_to" class="form-label">Date to</label>
+                <input type="date" id="date_to" name="date_to" class="form-control" value="<?= esc($hasDateTo ? $dateTo : '') ?>">
             </div>
             <div class="col-auto d-flex gap-2">
                 <button type="submit" class="btn btn-primary">Apply</button>
@@ -143,6 +160,9 @@ render_header('Call History Report');
             <tr>
                 <th>User</th>
                 <th>Total Calls</th>
+                <th>Employer Connect</th>
+                <th>Candidate Connect</th>
+                <th>Aggregator Contact</th>
                 <th>Attended</th>
                 <th>Not attended</th>
                 <th>Invalid number</th>
@@ -153,7 +173,7 @@ render_header('Call History Report');
         <tbody>
             <?php if ($summaryRows === []): ?>
                 <tr>
-                    <td colspan="7" class="text-center text-muted">No call history records found.</td>
+                    <td colspan="10" class="text-center text-muted">No call history records found.</td>
                 </tr>
             <?php endif; ?>
             <?php foreach ($summaryRows as $row): ?>
@@ -161,6 +181,9 @@ render_header('Call History Report');
                 <tr>
                     <td><?= esc($memberKey) ?></td>
                     <td><?= (int) $row['total_calls'] ?></td>
+                    <td><?= (int) $row['employer_connect_calls'] ?></td>
+                    <td><?= (int) $row['candidate_connect_calls'] ?></td>
+                    <td><?= (int) $row['aggregator_contact_calls'] ?></td>
                     <td><?= (int) $row['attended_calls'] ?></td>
                     <td><?= (int) $row['not_attended_calls'] ?></td>
                     <td><?= (int) $row['invalid_number_calls'] ?></td>
@@ -172,7 +195,7 @@ render_header('Call History Report');
                     </td>
                 </tr>
                 <tr class="collapse" id="call-history-<?= md5($memberKey) ?>">
-                    <td colspan="7">
+                    <td colspan="10">
                         <div class="table-responsive">
                             <table class="table table-sm table-hover mb-0">
                                 <thead>
