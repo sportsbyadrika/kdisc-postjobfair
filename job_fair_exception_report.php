@@ -58,18 +58,18 @@ function fetch_exception_rows(array $filters): array
             COUNT(*) AS total_count,
             SUM(CASE WHEN LOWER(TRIM(Offer_Letter_Generated)) = 'yes' THEN 1 ELSE 0 END) AS offer_generated_yes,
             SUM(CASE WHEN LOWER(TRIM(Offer_Letter_Generated)) = 'no' THEN 1 ELSE 0 END) AS offer_generated_no,
-            SUM(CASE WHEN LOWER(TRIM(Offer_Letter_Generated)) = 'pending' THEN 1 ELSE 0 END) AS offer_generated_pending,
+            SUM(CASE WHEN TRIM(COALESCE(Offer_Letter_Generated, '')) = '' OR LOWER(TRIM(Offer_Letter_Generated)) = 'pending' THEN 1 ELSE 0 END) AS offer_generated_pending,
             SUM(CASE WHEN TRIM(COALESCE(Link_to_Offer_letter, '')) <> '' THEN 1 ELSE 0 END) AS offer_link_with,
             SUM(CASE WHEN TRIM(COALESCE(Link_to_Offer_letter, '')) = '' THEN 1 ELSE 0 END) AS offer_link_blank,
             SUM(CASE WHEN LOWER(TRIM(Link_to_Offer_letter_verified)) = 'yes' THEN 1 ELSE 0 END) AS link_verified_yes,
             SUM(CASE WHEN LOWER(TRIM(Link_to_Offer_letter_verified)) = 'no' THEN 1 ELSE 0 END) AS link_verified_no,
-            SUM(CASE WHEN LOWER(TRIM(COALESCE(Link_to_Offer_letter_verified, 'pending'))) = 'pending' THEN 1 ELSE 0 END) AS link_verified_pending,
+            SUM(CASE WHEN TRIM(COALESCE(Link_to_Offer_letter_verified, '')) = '' OR LOWER(TRIM(Link_to_Offer_letter_verified)) = 'pending' THEN 1 ELSE 0 END) AS link_verified_pending,
             SUM(CASE WHEN LOWER(TRIM(Confirm_Offer_Letter_Receipt_by_Candidate)) = 'yes' THEN 1 ELSE 0 END) AS receipt_confirmed_yes,
             SUM(CASE WHEN LOWER(TRIM(Confirm_Offer_Letter_Receipt_by_Candidate)) = 'no' THEN 1 ELSE 0 END) AS receipt_confirmed_no,
-            SUM(CASE WHEN LOWER(TRIM(Confirm_Offer_Letter_Receipt_by_Candidate)) = 'pending' THEN 1 ELSE 0 END) AS receipt_confirmed_pending,
+            SUM(CASE WHEN TRIM(COALESCE(Confirm_Offer_Letter_Receipt_by_Candidate, '')) = '' OR LOWER(TRIM(Confirm_Offer_Letter_Receipt_by_Candidate)) = 'pending' THEN 1 ELSE 0 END) AS receipt_confirmed_pending,
             SUM(CASE WHEN LOWER(TRIM(Candidate_Joined_Status)) = 'yes' THEN 1 ELSE 0 END) AS candidate_joined_yes,
             SUM(CASE WHEN LOWER(TRIM(Candidate_Joined_Status)) = 'no' THEN 1 ELSE 0 END) AS candidate_joined_no,
-            SUM(CASE WHEN LOWER(TRIM(Candidate_Joined_Status)) = 'pending' THEN 1 ELSE 0 END) AS candidate_joined_pending
+            SUM(CASE WHEN TRIM(COALESCE(Candidate_Joined_Status, '')) = '' OR LOWER(TRIM(Candidate_Joined_Status)) = 'pending' THEN 1 ELSE 0 END) AS candidate_joined_pending
         FROM job_fair_result
         $whereClause
         GROUP BY job_fair_no
