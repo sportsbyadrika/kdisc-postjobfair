@@ -109,6 +109,30 @@ CREATE TABLE IF NOT EXISTS job_fair_result (
   Shortlist_Candidate_Status ENUM('Shortlisted','Selected','Rejected','Onhold')
 );
 
+
+CREATE TABLE IF NOT EXISTS aggregator_offer_letter_upload (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  job_fair_id VARCHAR(255),
+  job_fair_date DATETIME,
+  sl_no VARCHAR(100),
+  dwms_id VARCHAR(255),
+  candidate_name VARCHAR(255),
+  job_id VARCHAR(255),
+  job_role VARCHAR(255),
+  date_of_issuing_offer_letter DATETIME,
+  offer_letter_generated VARCHAR(20),
+  offer_letter_given_to_candidate VARCHAR(20),
+  link_to_offer_letter VARCHAR(1000),
+  offer_letter_generated_date DATETIME,
+  employer_id VARCHAR(255),
+  employer_name VARCHAR(255),
+  aggregator VARCHAR(255),
+  offer_letter_status VARCHAR(255),
+  aggregator_remarks_ictak TEXT,
+  status VARCHAR(255),
+  uploaded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS candidate_call_purpose (
   id INT AUTO_INCREMENT PRIMARY KEY,
   purpose_name VARCHAR(255) NOT NULL UNIQUE,
