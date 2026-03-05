@@ -43,8 +43,13 @@ function render_header(string $title): void
                         </ul>
                     </li>
                     <?php if ($user['role'] === 'administrator'): ?>
-                        <li class="nav-item"><a class="nav-link" href="/users.php">Users</a></li>
-                        <li class="nav-item"><a class="nav-link" href="/reports.php">Login Reports</a></li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">User Management</a>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="/users.php">Users</a></li>
+                                <li><a class="dropdown-item" href="/reports.php">Login Reports</a></li>
+                            </ul>
+                        </li>
                     <?php endif; ?>
                 </ul>
                 <div class="dropdown">
