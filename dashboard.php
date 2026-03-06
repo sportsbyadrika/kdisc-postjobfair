@@ -11,16 +11,10 @@ if ($user['role'] === 'administrator') {
     $totalUsers = (int) db()->query('SELECT COUNT(*) FROM users WHERE active_status = 1')->fetchColumn();
 }
 
-$activitySql = $user['role'] === 'administrator'
-    ? 'SELECT COUNT(*) FROM activities WHERE active_status = 1'
-    : 'SELECT COUNT(*) FROM activities WHERE active_status = 1 AND owner_user_id = ?';
-$stmt = db()->prepare($activitySql);
-$stmt->execute($user['role'] === 'administrator' ? [] : [$uid]);
-$totalActivities = (int) $stmt->fetchColumn();
-
-$projectCount = (int) db()->query("SELECT COUNT(*) FROM activities WHERE module_name='project' AND active_status = 1")->fetchColumn();
-$crmCount = (int) db()->query("SELECT COUNT(*) FROM activities WHERE module_name='crm' AND active_status = 1")->fetchColumn();
-$reportCount = (int) db()->query("SELECT COUNT(*) FROM activities WHERE module_name='report' AND active_status = 1")->fetchColumn();
+$selectedCount = (int) db()->query("SELECT COUNT(*) FROM job_fair_result WHERE LOWER(REPLACE(TRIM(Selection_Status), ' ', '')) = 'selected'")->fetchColumn();
+$shortlistedCount = (int) db()->query("SELECT COUNT(*) FROM job_fair_result WHERE LOWER(REPLACE(TRIM(Selection_Status), ' ', '')) = 'shortlisted'")->fetchColumn();
+$onHoldCount = (int) db()->query("SELECT COUNT(*) FROM job_fair_result WHERE LOWER(REPLACE(TRIM(Selection_Status), ' ', '')) = 'onhold'")->fetchColumn();
+$totalJoinedCount = (int) db()->query("SELECT COUNT(*) FROM job_fair_result WHERE LOWER(TRIM(Candidate_Joined_Status)) = 'yes'")->fetchColumn();
 
 
 $pivotRows = db()->query('SELECT Job_Fair_No, Selection_Status, COUNT(*) AS total_count FROM job_fair_result GROUP BY Job_Fair_No, Selection_Status ORDER BY Job_Fair_No, Selection_Status')->fetchAll();
@@ -62,10 +56,10 @@ render_header('Dashboard');
     <?php if ($user['role'] === 'administrator'): ?>
         <div class="col-12 col-md-6 col-lg-3"><div class="card card-stat"><div class="card-body"><p class="text-muted mb-1">Active Users</p><h2 class="h4"><?= $totalUsers ?></h2><a href="/users.php">Manage</a></div></div></div>
     <?php endif; ?>
-    <div class="col-12 col-md-6 col-lg-3"><div class="card card-stat"><div class="card-body"><p class="text-muted mb-1">Activities</p><h2 class="h4"><?= $totalActivities ?></h2><a href="/activities.php">Open</a></div></div></div>
-    <div class="col-12 col-md-6 col-lg-2"><div class="card card-stat"><div class="card-body"><p class="text-muted mb-1">Project</p><h2 class="h4"><?= $projectCount ?></h2></div></div></div>
-    <div class="col-12 col-md-6 col-lg-2"><div class="card card-stat"><div class="card-body"><p class="text-muted mb-1">CRM</p><h2 class="h4"><?= $crmCount ?></h2></div></div></div>
-    <div class="col-12 col-md-6 col-lg-2"><div class="card card-stat"><div class="card-body"><p class="text-muted mb-1">Reports</p><h2 class="h4"><?= $reportCount ?></h2></div></div></div>
+    <div class="col-12 col-md-6 col-lg-3"><div class="card card-stat"><div class="card-body"><p class="text-muted mb-1">Selected</p><h2 class="h4"><?= $selectedCount ?></h2></div></div></div>
+    <div class="col-12 col-md-6 col-lg-3"><div class="card card-stat"><div class="card-body"><p class="text-muted mb-1">Shortlisted</p><h2 class="h4"><?= $shortlistedCount ?></h2></div></div></div>
+    <div class="col-12 col-md-6 col-lg-3"><div class="card card-stat"><div class="card-body"><p class="text-muted mb-1">On hold</p><h2 class="h4"><?= $onHoldCount ?></h2></div></div></div>
+    <div class="col-12 col-md-6 col-lg-3"><div class="card card-stat"><div class="card-body"><p class="text-muted mb-1">Total Joined</p><h2 class="h4"><?= $totalJoinedCount ?></h2></div></div></div>
 </div>
 
 <div class="card">
