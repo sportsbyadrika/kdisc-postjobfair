@@ -3,8 +3,62 @@ require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/layout.php';
 require_auth();
 
+const EXCEPTION_FILTER_COLUMNS = [
+    'aggregator' => 'Aggregator',
+    'job_fair_no' => 'Job_Fair_No',
+    'selection_status' => 'Selection_Status',
+    'category' => 'Category',
+];
+
+const EXCEPTION_DETAIL_COLUMNS = [
+    'job_fair_no' => 'Job_Fair_No',
+    'job_fair_date' => 'Job_Fair_Date',
+    'aggregator' => 'Aggregator',
+    'employer_id' => 'Employer_ID',
+    'employer_name' => 'Employer_Name',
+    'job_id' => 'Job_Id',
+    'job_title' => 'Job_Title_Name',
+    'dwms_id' => 'DWMS_ID',
+    'candidate_name' => 'Candidate_Name',
+    'category' => 'Category',
+    'selection_status' => 'Selection_Status',
+    'shortlist_candidate_status' => 'Shortlist_Candidate_Status',
+    'shortlist_current_call_status' => 'Shortlist_Current_Call_Status',
+    'offer_letter_generated' => 'Offer_Letter_Generated',
+    'link_to_offer_letter_verified' => 'Link_to_Offer_letter_verified',
+    'confirm_offer_letter_receipt_by_candidate' => 'Confirm_Offer_Letter_Receipt_by_Candidate',
+    'candidate_joined_status' => 'Candidate_Joined_Status',
+];
+
+const EXCEPTION_METRIC_LABELS = [
+    'total_count' => 'Total',
+    'offer_generated_yes' => 'Offer Letter Generated: Yes',
+    'offer_generated_no' => 'Offer Letter Generated: No',
+    'offer_generated_pending' => 'Offer Letter Generated: Pending',
+    'offer_link_with' => 'Link to Offer Letter: With Link',
+    'offer_link_blank' => 'Link to Offer Letter: Blank',
+    'link_verified_yes' => 'Link Verified: Yes',
+    'link_verified_no' => 'Link Verified: No',
+    'link_verified_pending' => 'Link Verified: Pending',
+    'receipt_confirmed_yes' => 'Offer Letter Receipt Confirmed: Yes',
+    'receipt_confirmed_no' => 'Offer Letter Receipt Confirmed: No',
+    'receipt_confirmed_pending' => 'Offer Letter Receipt Confirmed: Pending',
+    'candidate_joined_yes' => 'Candidate Joined: Yes',
+    'candidate_joined_no' => 'Candidate Joined: No',
+    'candidate_joined_pending' => 'Candidate Joined: Pending',
+    'shortlist_candidate_shortlisted' => 'Shortlist Candidate Status: Shortlisted',
+    'shortlist_candidate_selected' => 'Shortlist Candidate Status: Selected',
+    'shortlist_candidate_rejected' => 'Shortlist Candidate Status: Rejected',
+    'shortlist_candidate_onhold' => 'Shortlist Candidate Status: Onhold',
+];
+
 function fetch_filter_options(string $column): array
 {
+    $allowedColumns = array_values(EXCEPTION_FILTER_COLUMNS);
+    if (!in_array($column, $allowedColumns, true)) {
+        return [];
+    }
+
     $sql = "SELECT DISTINCT $column AS value
         FROM job_fair_result
         WHERE $column IS NOT NULL AND TRIM($column) <> ''
@@ -19,6 +73,7 @@ function build_exception_filters(): array
         'aggregator' => trim((string) ($_GET['aggregator'] ?? '')),
         'job_fair_no' => trim((string) ($_GET['job_fair_no'] ?? '')),
         'selection_status' => trim((string) ($_GET['selection_status'] ?? '')),
+        'category' => trim((string) ($_GET['category'] ?? '')),
     ];
 }
 
@@ -26,19 +81,13 @@ function build_exception_where_clause(array $filters, array &$params): string
 {
     $conditions = [];
 
-    if ($filters['aggregator'] !== '') {
-        $conditions[] = 'Aggregator = ?';
-        $params[] = $filters['aggregator'];
-    }
+    foreach (EXCEPTION_FILTER_COLUMNS as $filterKey => $column) {
+        if (($filters[$filterKey] ?? '') === '') {
+            continue;
+        }
 
-    if ($filters['job_fair_no'] !== '') {
-        $conditions[] = 'Job_Fair_No = ?';
-        $params[] = $filters['job_fair_no'];
-    }
-
-    if ($filters['selection_status'] !== '') {
-        $conditions[] = 'Selection_Status = ?';
-        $params[] = $filters['selection_status'];
+        $conditions[] = "$column = ?";
+        $params[] = $filters[$filterKey];
     }
 
     if ($conditions === []) {
@@ -69,7 +118,11 @@ function fetch_exception_rows(array $filters): array
             SUM(CASE WHEN TRIM(COALESCE(Confirm_Offer_Letter_Receipt_by_Candidate, '')) = '' OR LOWER(TRIM(Confirm_Offer_Letter_Receipt_by_Candidate)) = 'pending' THEN 1 ELSE 0 END) AS receipt_confirmed_pending,
             SUM(CASE WHEN LOWER(TRIM(Candidate_Joined_Status)) = 'yes' THEN 1 ELSE 0 END) AS candidate_joined_yes,
             SUM(CASE WHEN LOWER(TRIM(Candidate_Joined_Status)) = 'no' THEN 1 ELSE 0 END) AS candidate_joined_no,
-            SUM(CASE WHEN TRIM(COALESCE(Candidate_Joined_Status, '')) = '' OR LOWER(TRIM(Candidate_Joined_Status)) = 'pending' THEN 1 ELSE 0 END) AS candidate_joined_pending
+            SUM(CASE WHEN TRIM(COALESCE(Candidate_Joined_Status, '')) = '' OR LOWER(TRIM(Candidate_Joined_Status)) = 'pending' THEN 1 ELSE 0 END) AS candidate_joined_pending,
+            SUM(CASE WHEN LOWER(TRIM(Shortlist_Candidate_Status)) = 'shortlisted' THEN 1 ELSE 0 END) AS shortlist_candidate_shortlisted,
+            SUM(CASE WHEN LOWER(TRIM(Shortlist_Candidate_Status)) = 'selected' THEN 1 ELSE 0 END) AS shortlist_candidate_selected,
+            SUM(CASE WHEN LOWER(TRIM(Shortlist_Candidate_Status)) = 'rejected' THEN 1 ELSE 0 END) AS shortlist_candidate_rejected,
+            SUM(CASE WHEN LOWER(TRIM(Shortlist_Candidate_Status)) = 'onhold' THEN 1 ELSE 0 END) AS shortlist_candidate_onhold
         FROM job_fair_result
         $whereClause
         GROUP BY job_fair_no
@@ -83,24 +136,7 @@ function fetch_exception_rows(array $filters): array
 
 function calculate_exception_totals(array $rows): array
 {
-    $keys = [
-        'total_count',
-        'offer_generated_yes',
-        'offer_generated_no',
-        'offer_generated_pending',
-        'offer_link_with',
-        'offer_link_blank',
-        'link_verified_yes',
-        'link_verified_no',
-        'link_verified_pending',
-        'receipt_confirmed_yes',
-        'receipt_confirmed_no',
-        'receipt_confirmed_pending',
-        'candidate_joined_yes',
-        'candidate_joined_no',
-        'candidate_joined_pending',
-    ];
-
+    $keys = array_keys(EXCEPTION_METRIC_LABELS);
     $totals = array_fill_keys($keys, 0);
 
     foreach ($rows as $row) {
@@ -112,10 +148,35 @@ function calculate_exception_totals(array $rows): array
     return $totals;
 }
 
+function build_exception_detail_url(array $filters, string $jobFairNo, string $metric): string
+{
+    $query = [
+        'job_fair_row' => $jobFairNo,
+        'metric' => $metric,
+    ];
+
+    foreach (array_keys(EXCEPTION_FILTER_COLUMNS) as $key) {
+        if (($filters[$key] ?? '') !== '') {
+            $query[$key] = $filters[$key];
+        }
+    }
+
+    return 'job_fair_exception_candidates.php?' . http_build_query($query);
+}
+
+function render_linked_metric(array $filters, string $jobFairNo, string $metric, int $count): string
+{
+    $url = build_exception_detail_url($filters, $jobFairNo, $metric);
+    $text = (string) $count;
+
+    return '<a href="' . esc($url) . '" target="_blank" rel="noopener">' . esc($text) . '</a>';
+}
+
 $filters = build_exception_filters();
 $aggregatorOptions = fetch_filter_options('Aggregator');
 $jobFairNoOptions = fetch_filter_options('Job_Fair_No');
 $selectionStatusOptions = fetch_filter_options('Selection_Status');
+$categoryOptions = fetch_filter_options('Category');
 $rows = fetch_exception_rows($filters);
 $totals = calculate_exception_totals($rows);
 
@@ -127,7 +188,7 @@ render_header('Job Fair Exception Report');
     <div class="card-body">
         <h2 class="h5">Filters</h2>
         <form method="get" class="row g-3 align-items-end">
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <label for="aggregator" class="form-label">Aggregator</label>
                 <select class="form-select" id="aggregator" name="aggregator">
                     <option value="">All Aggregators</option>
@@ -136,7 +197,7 @@ render_header('Job Fair Exception Report');
                     <?php endforeach; ?>
                 </select>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <label for="job_fair_no" class="form-label">Job Fair No</label>
                 <select class="form-select" id="job_fair_no" name="job_fair_no">
                     <option value="">All Job Fairs</option>
@@ -145,12 +206,21 @@ render_header('Job Fair Exception Report');
                     <?php endforeach; ?>
                 </select>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <label for="selection_status" class="form-label">Selection Status</label>
                 <select class="form-select" id="selection_status" name="selection_status">
                     <option value="">All Selection Statuses</option>
                     <?php foreach ($selectionStatusOptions as $option): ?>
                         <option value="<?= esc($option) ?>" <?= $filters['selection_status'] === $option ? 'selected' : '' ?>><?= esc($option) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="category" class="form-label">Category</label>
+                <select class="form-select" id="category" name="category">
+                    <option value="">All Categories</option>
+                    <?php foreach ($categoryOptions as $option): ?>
+                        <option value="<?= esc($option) ?>" <?= $filters['category'] === $option ? 'selected' : '' ?>><?= esc($option) ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>
@@ -176,6 +246,7 @@ render_header('Job Fair Exception Report');
                     <th colspan="3">Link Verified</th>
                     <th colspan="3">Offer Letter Receipt Confirmed</th>
                     <th colspan="3">Candidate Joined</th>
+                    <th colspan="4">Shortlist Candidate Status</th>
                 </tr>
                 <tr>
                     <th>Yes</th>
@@ -192,32 +263,40 @@ render_header('Job Fair Exception Report');
                     <th>Yes</th>
                     <th>No</th>
                     <th>Pending</th>
+                    <th>Shortlisted</th>
+                    <th>Selected</th>
+                    <th>Rejected</th>
+                    <th>Onhold</th>
                 </tr>
                 </thead>
                 <tbody>
                 <?php if ($rows === []): ?>
                     <tr>
-                        <td colspan="17" class="text-center text-muted">No data available.</td>
+                        <td colspan="21" class="text-center text-muted">No data available.</td>
                     </tr>
                 <?php endif; ?>
                 <?php foreach ($rows as $row): ?>
                     <tr>
                         <td><?= esc($row['job_fair_no']) ?></td>
-                        <td><?= (int) $row['total_count'] ?></td>
-                        <td><?= (int) $row['offer_generated_yes'] ?></td>
-                        <td><?= (int) $row['offer_generated_no'] ?></td>
-                        <td><?= (int) $row['offer_generated_pending'] ?></td>
-                        <td><?= (int) $row['offer_link_with'] ?></td>
-                        <td><?= (int) $row['offer_link_blank'] ?></td>
-                        <td><?= (int) $row['link_verified_yes'] ?></td>
-                        <td><?= (int) $row['link_verified_no'] ?></td>
-                        <td><?= (int) $row['link_verified_pending'] ?></td>
-                        <td><?= (int) $row['receipt_confirmed_yes'] ?></td>
-                        <td><?= (int) $row['receipt_confirmed_no'] ?></td>
-                        <td><?= (int) $row['receipt_confirmed_pending'] ?></td>
-                        <td><?= (int) $row['candidate_joined_yes'] ?></td>
-                        <td><?= (int) $row['candidate_joined_no'] ?></td>
-                        <td><?= (int) $row['candidate_joined_pending'] ?></td>
+                        <td><?= render_linked_metric($filters, (string) $row['job_fair_no'], 'total_count', (int) $row['total_count']) ?></td>
+                        <td><?= render_linked_metric($filters, (string) $row['job_fair_no'], 'offer_generated_yes', (int) $row['offer_generated_yes']) ?></td>
+                        <td><?= render_linked_metric($filters, (string) $row['job_fair_no'], 'offer_generated_no', (int) $row['offer_generated_no']) ?></td>
+                        <td><?= render_linked_metric($filters, (string) $row['job_fair_no'], 'offer_generated_pending', (int) $row['offer_generated_pending']) ?></td>
+                        <td><?= render_linked_metric($filters, (string) $row['job_fair_no'], 'offer_link_with', (int) $row['offer_link_with']) ?></td>
+                        <td><?= render_linked_metric($filters, (string) $row['job_fair_no'], 'offer_link_blank', (int) $row['offer_link_blank']) ?></td>
+                        <td><?= render_linked_metric($filters, (string) $row['job_fair_no'], 'link_verified_yes', (int) $row['link_verified_yes']) ?></td>
+                        <td><?= render_linked_metric($filters, (string) $row['job_fair_no'], 'link_verified_no', (int) $row['link_verified_no']) ?></td>
+                        <td><?= render_linked_metric($filters, (string) $row['job_fair_no'], 'link_verified_pending', (int) $row['link_verified_pending']) ?></td>
+                        <td><?= render_linked_metric($filters, (string) $row['job_fair_no'], 'receipt_confirmed_yes', (int) $row['receipt_confirmed_yes']) ?></td>
+                        <td><?= render_linked_metric($filters, (string) $row['job_fair_no'], 'receipt_confirmed_no', (int) $row['receipt_confirmed_no']) ?></td>
+                        <td><?= render_linked_metric($filters, (string) $row['job_fair_no'], 'receipt_confirmed_pending', (int) $row['receipt_confirmed_pending']) ?></td>
+                        <td><?= render_linked_metric($filters, (string) $row['job_fair_no'], 'candidate_joined_yes', (int) $row['candidate_joined_yes']) ?></td>
+                        <td><?= render_linked_metric($filters, (string) $row['job_fair_no'], 'candidate_joined_no', (int) $row['candidate_joined_no']) ?></td>
+                        <td><?= render_linked_metric($filters, (string) $row['job_fair_no'], 'candidate_joined_pending', (int) $row['candidate_joined_pending']) ?></td>
+                        <td><?= render_linked_metric($filters, (string) $row['job_fair_no'], 'shortlist_candidate_shortlisted', (int) $row['shortlist_candidate_shortlisted']) ?></td>
+                        <td><?= render_linked_metric($filters, (string) $row['job_fair_no'], 'shortlist_candidate_selected', (int) $row['shortlist_candidate_selected']) ?></td>
+                        <td><?= render_linked_metric($filters, (string) $row['job_fair_no'], 'shortlist_candidate_rejected', (int) $row['shortlist_candidate_rejected']) ?></td>
+                        <td><?= render_linked_metric($filters, (string) $row['job_fair_no'], 'shortlist_candidate_onhold', (int) $row['shortlist_candidate_onhold']) ?></td>
                     </tr>
                 <?php endforeach; ?>
                 <?php if ($rows !== []): ?>
@@ -238,6 +317,10 @@ render_header('Job Fair Exception Report');
                         <td><?= $totals['candidate_joined_yes'] ?></td>
                         <td><?= $totals['candidate_joined_no'] ?></td>
                         <td><?= $totals['candidate_joined_pending'] ?></td>
+                        <td><?= $totals['shortlist_candidate_shortlisted'] ?></td>
+                        <td><?= $totals['shortlist_candidate_selected'] ?></td>
+                        <td><?= $totals['shortlist_candidate_rejected'] ?></td>
+                        <td><?= $totals['shortlist_candidate_onhold'] ?></td>
                     </tr>
                 <?php endif; ?>
                 </tbody>
