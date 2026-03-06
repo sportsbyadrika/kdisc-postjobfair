@@ -180,7 +180,7 @@ $categoryOptions = fetch_filter_options('Category');
 $rows = fetch_exception_rows($filters);
 $totals = calculate_exception_totals($rows);
 
-render_header('Job Fair Exception Report');
+render_header('Job Fair Exception Report', ['main_container_class' => 'container-fluid']);
 ?>
 <h1 class="h3 mb-4">Job Fair Exception Report</h1>
 

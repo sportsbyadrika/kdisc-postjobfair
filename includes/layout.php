@@ -1,8 +1,10 @@
 <?php
 require_once __DIR__ . '/auth.php';
 
-function render_header(string $title): void
+function render_header(string $title, array $options = []): void
 {
+    $showNavigation = $options['show_navigation'] ?? true;
+    $mainContainerClass = $options['main_container_class'] ?? 'container';
     $user = current_user();
     ?>
 <!doctype html>
@@ -15,70 +17,74 @@ function render_header(string $title): void
     <link rel="stylesheet" href="/assets/css/app.css">
 </head>
 <body class="d-flex flex-column min-vh-100">
-<nav class="navbar navbar-expand-lg navbar-light navbar-silver shadow-sm">
-    <div class="container-fluid">
-        <a class="navbar-brand d-flex align-items-center gap-2" href="/dashboard.php">
-            <span class="brand-icon">🚀</span>
-            <span>Job Fair Status Tracker</span>
-        </a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-controls="mainNav" aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="mainNav">
-            <?php if ($user): ?>
-                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                    <li class="nav-item"><a class="nav-link" href="/dashboard.php">Dashboard</a></li>
-                    <li class="nav-item"><a class="nav-link" href="/activities.php">Activities</a></li>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Job fair</a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="/job_fair_results.php">Job fair result data</a></li>
-                            <li><a class="dropdown-item" href="/call_history_report.php">Call history report</a></li>
-                            <li><a class="dropdown-item" href="/job_fair_reports.php">Reports</a></li>
-                            <li><a class="dropdown-item" href="/job_fair_exception_report.php">Exception report</a></li>
-                            <li><a class="dropdown-item" href="/job_fair_masters.php">Masters</a></li>
-                            <?php if ($user['role'] === 'administrator'): ?>
-                                <li><a class="dropdown-item" href="/job_fair_result_upload.php">Upload job fair result CSV</a></li>
-                                <li><a class="dropdown-item" href="/aggregator_offer_letter_upload.php">Upload aggregator selected data CSV</a></li>
-                                <li><a class="dropdown-item" href="/job_fair_results_export.php">Download job fair result CSV</a></li>
-                            <?php endif; ?>
-                        </ul>
-                    </li>
-                    <?php if ($user['role'] === 'administrator'): ?>
+<?php if ($showNavigation): ?>
+    <nav class="navbar navbar-expand-lg navbar-light navbar-silver shadow-sm">
+        <div class="container-fluid">
+            <a class="navbar-brand d-flex align-items-center gap-2" href="/dashboard.php">
+                <span class="brand-icon">🚀</span>
+                <span>Job Fair Status Tracker</span>
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-controls="mainNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="mainNav">
+                <?php if ($user): ?>
+                    <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                        <li class="nav-item"><a class="nav-link" href="/dashboard.php">Dashboard</a></li>
+                        <li class="nav-item"><a class="nav-link" href="/activities.php">Activities</a></li>
                         <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">User Management</a>
+                            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Job fair</a>
                             <ul class="dropdown-menu">
-                                <li><a class="dropdown-item" href="/users.php">Users</a></li>
-                                <li><a class="dropdown-item" href="/reports.php">Login Reports</a></li>
+                                <li><a class="dropdown-item" href="/job_fair_results.php">Job fair result data</a></li>
+                                <li><a class="dropdown-item" href="/call_history_report.php">Call history report</a></li>
+                                <li><a class="dropdown-item" href="/job_fair_reports.php">Reports</a></li>
+                                <li><a class="dropdown-item" href="/job_fair_exception_report.php">Exception report</a></li>
+                                <li><a class="dropdown-item" href="/job_fair_masters.php">Masters</a></li>
+                                <?php if ($user['role'] === 'administrator'): ?>
+                                    <li><a class="dropdown-item" href="/job_fair_result_upload.php">Upload job fair result CSV</a></li>
+                                    <li><a class="dropdown-item" href="/aggregator_offer_letter_upload.php">Upload aggregator selected data CSV</a></li>
+                                    <li><a class="dropdown-item" href="/job_fair_results_export.php">Download job fair result CSV</a></li>
+                                <?php endif; ?>
                             </ul>
                         </li>
-                    <?php endif; ?>
-                </ul>
-                <div class="dropdown">
-                    <button class="btn btn-light btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                        <?= esc($user['name']) ?> (<?= esc($user['mobile_number']) ?>)
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end">
-                        <li><span class="dropdown-item-text small text-muted"><?= esc($user['email']) ?></span></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item" href="/logout.php">Logout</a></li>
+                        <?php if ($user['role'] === 'administrator'): ?>
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">User Management</a>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" href="/users.php">Users</a></li>
+                                    <li><a class="dropdown-item" href="/reports.php">Login Reports</a></li>
+                                </ul>
+                            </li>
+                        <?php endif; ?>
                     </ul>
-                </div>
-            <?php endif; ?>
+                    <div class="dropdown">
+                        <button class="btn btn-light btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                            <?= esc($user['name']) ?> (<?= esc($user['mobile_number']) ?>)
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><span class="dropdown-item-text small text-muted"><?= esc($user['email']) ?></span></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="/logout.php">Logout</a></li>
+                        </ul>
+                    </div>
+                <?php endif; ?>
+            </div>
         </div>
-    </div>
-</nav>
-<main class="container py-4 flex-grow-1">
+    </nav>
+<?php endif; ?>
+<main class="<?= esc($mainContainerClass) ?> py-4 flex-grow-1">
 <?php
 }
 
-function render_footer(): void
+function render_footer(bool $showFooter = true): void
 {
     ?>
 </main>
+<?php if ($showFooter): ?>
 <footer class="bg-light border-top py-3 mt-auto">
     <div class="container text-center text-muted small">© <?= date('Y') ?> Job Fair Status Tracker</div>
 </footer>
+<?php endif; ?>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {

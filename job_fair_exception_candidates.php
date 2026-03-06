@@ -158,9 +158,80 @@ function fetch_exception_candidates(array $filters, string $jobFairRow, string $
     return $stmt->fetchAll();
 }
 
+
+function output_exception_candidates_csv(array $rows, string $jobFairRow, string $metricLabel): void
+{
+    $safeMetric = preg_replace('/[^a-z0-9]+/i', '_', strtolower($metricLabel));
+    $safeMetric = trim((string) $safeMetric, '_');
+    if ($safeMetric === '') {
+        $safeMetric = 'metric';
+    }
+
+    $safeJobFair = preg_replace('/[^a-z0-9]+/i', '_', strtolower($jobFairRow));
+    $safeJobFair = trim((string) $safeJobFair, '_');
+    if ($safeJobFair === '') {
+        $safeJobFair = 'unknown';
+    }
+
+    $filename = sprintf('job_fair_exception_candidates_%s_%s.csv', $safeJobFair, $safeMetric);
+
+    header('Content-Type: text/csv; charset=UTF-8');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+
+    $output = fopen('php://output', 'wb');
+    if ($output === false) {
+        return;
+    }
+
+    fputcsv($output, [
+        'Job Fair No',
+        'Job Fair Date',
+        'Aggregator',
+        'Employer Id',
+        'Employer Name',
+        'Job Id',
+        'Job Title',
+        'DWMS Id',
+        'Candidate Name',
+        'Category',
+        'Selection Status',
+        'Shortlist Candidate Status',
+        'Shortlist Current Call Status',
+        'Offer Letter Generated',
+        'Link to Offer Letter Verified',
+        'Confirm Offer Letter Receipt by Candidate',
+        'Candidate Joined Status',
+    ]);
+
+    foreach ($rows as $row) {
+        fputcsv($output, [
+            (string) $row['job_fair_no'],
+            (string) $row['job_fair_date'],
+            (string) $row['aggregator'],
+            (string) $row['employer_id'],
+            (string) $row['employer_name'],
+            (string) $row['job_id'],
+            (string) $row['job_title'],
+            (string) $row['dwms_id'],
+            (string) $row['candidate_name'],
+            (string) $row['category'],
+            (string) $row['selection_status'],
+            (string) $row['shortlist_candidate_status'],
+            (string) $row['shortlist_current_call_status'],
+            (string) $row['offer_letter_generated'],
+            (string) $row['link_to_offer_letter_verified'],
+            (string) $row['confirm_offer_letter_receipt_by_candidate'],
+            (string) $row['candidate_joined_status'],
+        ]);
+    }
+
+    fclose($output);
+}
+
 $filters = build_filters();
 $jobFairRow = trim((string) ($_GET['job_fair_row'] ?? ''));
 $metric = trim((string) ($_GET['metric'] ?? 'total_count'));
+$downloadCsv = (($_GET['download'] ?? '') === 'csv');
 
 if ($jobFairRow === '') {
     $jobFairRow = 'Unknown';
@@ -173,10 +244,18 @@ if (!array_key_exists($metric, EXCEPTION_METRIC_LABELS)) {
 $rows = fetch_exception_candidates($filters, $jobFairRow, $metric);
 $metricLabel = EXCEPTION_METRIC_LABELS[$metric];
 
-render_header('Exception Candidates');
+if ($downloadCsv) {
+    output_exception_candidates_csv($rows, $jobFairRow, $metricLabel);
+    exit;
+}
+
+render_header('Exception Candidates', ['show_navigation' => false, 'main_container_class' => 'container-fluid']);
 ?>
 <h1 class="h3 mb-3">Exception Candidates</h1>
-<p class="text-muted mb-4">Showing candidates for Job Fair No <strong><?= esc($jobFairRow) ?></strong> and metric <strong><?= esc($metricLabel) ?></strong>.</p>
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+    <p class="text-muted mb-0">Showing candidates for Job Fair No <strong><?= esc($jobFairRow) ?></strong> and metric <strong><?= esc($metricLabel) ?></strong>.</p>
+    <a class="btn btn-success" href="<?= esc($_SERVER['REQUEST_URI'] . (str_contains($_SERVER['REQUEST_URI'], '?') ? '&' : '?') . 'download=csv') ?>">Download CSV</a>
+</div>
 
 <div class="card">
     <div class="card-body">
@@ -236,4 +315,4 @@ render_header('Exception Candidates');
     </div>
 </div>
 
-<?php render_footer(); ?>
+<?php render_footer(false); ?>
