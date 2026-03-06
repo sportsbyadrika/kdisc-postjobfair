@@ -79,8 +79,7 @@ $summarySql = "
         SUM(CASE WHEN h.stage = 'Aggregator Contact' THEN 1 ELSE 0 END) AS aggregator_contact_calls,
         SUM(CASE WHEN h.call_status = 'Attended' THEN 1 ELSE 0 END) AS attended_calls,
         SUM(CASE WHEN h.call_status = 'Not attended' THEN 1 ELSE 0 END) AS not_attended_calls,
-        SUM(CASE WHEN h.call_status = 'Invalid number' THEN 1 ELSE 0 END) AS invalid_number_calls,
-        MAX(h.call_datetime) AS latest_call_datetime
+        SUM(CASE WHEN h.call_status = 'Invalid number' THEN 1 ELSE 0 END) AS invalid_number_calls
     FROM candidate_call_history h
     INNER JOIN job_fair_result j ON j.id = h.candidate_id
     LEFT JOIN candidate_call_purpose p ON p.id = h.purpose_id
@@ -166,14 +165,13 @@ render_header('Call History Report');
                 <th>Attended</th>
                 <th>Not attended</th>
                 <th>Invalid number</th>
-                <th>Latest Call</th>
                 <th>Details</th>
             </tr>
         </thead>
         <tbody>
             <?php if ($summaryRows === []): ?>
                 <tr>
-                    <td colspan="10" class="text-center text-muted">No call history records found.</td>
+                    <td colspan="9" class="text-center text-muted">No call history records found.</td>
                 </tr>
             <?php endif; ?>
             <?php foreach ($summaryRows as $row): ?>
@@ -187,15 +185,22 @@ render_header('Call History Report');
                     <td><?= (int) $row['attended_calls'] ?></td>
                     <td><?= (int) $row['not_attended_calls'] ?></td>
                     <td><?= (int) $row['invalid_number_calls'] ?></td>
-                    <td><?= esc((string) ($row['latest_call_datetime'] ?? '-')) ?></td>
                     <td>
-                        <button class="btn btn-sm btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#call-history-<?= md5($memberKey) ?>">
-                            View details
+                        <button
+                            class="btn btn-sm btn-outline-primary px-2"
+                            type="button"
+                            data-bs-toggle="collapse"
+                            data-bs-target="#call-history-<?= md5($memberKey) ?>"
+                            aria-label="View details for <?= esc($memberKey) ?>"
+                            title="View details"
+                        >
+                            <span aria-hidden="true">▾</span>
+                            <span class="visually-hidden">View details</span>
                         </button>
                     </td>
                 </tr>
                 <tr class="collapse" id="call-history-<?= md5($memberKey) ?>">
-                    <td colspan="10">
+                    <td colspan="9">
                         <div class="table-responsive">
                             <table class="table table-sm table-hover mb-0">
                                 <thead>
