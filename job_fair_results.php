@@ -207,7 +207,7 @@ $editableFieldConfig = [
     [
         'panel_label' => 'Shortlist/Onhold',
         'field_name' => 'Shortlist_Candidate_Status',
-        'field_type' => "enum('Shortlisted','Selected','Rejected','Onhold')",
+        'field_type' => "enum('Shortlisted','Selected','Rejected','Onhold','Candidate Not Interested')",
         'group_label' => 'Shortlist Process',
         'row_position' => 5,
         'column_position' => 1,
