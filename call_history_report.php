@@ -91,6 +91,21 @@ $summaryStmt = db()->prepare($summarySql);
 $summaryStmt->execute($baseParams);
 $summaryRows = $summaryStmt->fetchAll();
 
+$summaryTotals = [
+    'total_calls' => 0,
+    'employer_connect_calls' => 0,
+    'candidate_connect_calls' => 0,
+    'aggregator_contact_calls' => 0,
+    'attended_calls' => 0,
+    'not_attended_calls' => 0,
+    'invalid_number_calls' => 0,
+];
+foreach ($summaryRows as $summaryRow) {
+    foreach (array_keys($summaryTotals) as $totalKey) {
+        $summaryTotals[$totalKey] += (int) ($summaryRow[$totalKey] ?? 0);
+    }
+}
+
 $detailSql = "
     SELECT
         h.id,
@@ -236,6 +251,19 @@ render_header('Call History Report');
                     </td>
                 </tr>
             <?php endforeach; ?>
+            <?php if ($summaryRows !== []): ?>
+                <tr class="table-secondary fw-semibold">
+                    <td>Total</td>
+                    <td><?= $summaryTotals['total_calls'] ?></td>
+                    <td><?= $summaryTotals['employer_connect_calls'] ?></td>
+                    <td><?= $summaryTotals['candidate_connect_calls'] ?></td>
+                    <td><?= $summaryTotals['aggregator_contact_calls'] ?></td>
+                    <td><?= $summaryTotals['attended_calls'] ?></td>
+                    <td><?= $summaryTotals['not_attended_calls'] ?></td>
+                    <td><?= $summaryTotals['invalid_number_calls'] ?></td>
+                    <td>-</td>
+                </tr>
+            <?php endif; ?>
         </tbody>
     </table>
 </div>

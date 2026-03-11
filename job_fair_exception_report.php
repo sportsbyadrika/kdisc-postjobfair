@@ -50,6 +50,7 @@ const EXCEPTION_METRIC_LABELS = [
     'shortlist_candidate_selected' => 'Shortlist Candidate Status: Selected',
     'shortlist_candidate_rejected' => 'Shortlist Candidate Status: Rejected',
     'shortlist_candidate_onhold' => 'Shortlist Candidate Status: Onhold',
+    'shortlist_candidate_not_interested' => 'Shortlist Candidate Status: Candidate Not Interested',
 ];
 
 function fetch_filter_options(string $column): array
@@ -79,11 +80,21 @@ function build_exception_filters(): array
         $selectionStatus = $selectionStatus === '' ? [] : [$selectionStatus];
     }
 
+    $aggregator = $_GET['aggregator'] ?? [];
+    if (!is_array($aggregator)) {
+        $aggregator = $aggregator === '' ? [] : [$aggregator];
+    }
+
+    $category = $_GET['category'] ?? [];
+    if (!is_array($category)) {
+        $category = $category === '' ? [] : [$category];
+    }
+
     return [
-        'aggregator' => trim((string) ($_GET['aggregator'] ?? '')),
+        'aggregator' => array_values(array_filter(array_map(static fn($value): string => trim((string) $value), $aggregator), static fn(string $value): bool => $value !== '')),
         'job_fair_no' => array_values(array_filter(array_map(static fn($value): string => trim((string) $value), $jobFairNo), static fn(string $value): bool => $value !== '')),
         'selection_status' => array_values(array_filter(array_map(static fn($value): string => trim((string) $value), $selectionStatus), static fn(string $value): bool => $value !== '')),
-        'category' => trim((string) ($_GET['category'] ?? '')),
+        'category' => array_values(array_filter(array_map(static fn($value): string => trim((string) $value), $category), static fn(string $value): bool => $value !== '')),
     ];
 }
 
@@ -147,7 +158,8 @@ function fetch_exception_rows(array $filters): array
             SUM(CASE WHEN LOWER(TRIM(Shortlist_Candidate_Status)) = 'shortlisted' THEN 1 ELSE 0 END) AS shortlist_candidate_shortlisted,
             SUM(CASE WHEN LOWER(TRIM(Shortlist_Candidate_Status)) = 'selected' THEN 1 ELSE 0 END) AS shortlist_candidate_selected,
             SUM(CASE WHEN LOWER(TRIM(Shortlist_Candidate_Status)) = 'rejected' THEN 1 ELSE 0 END) AS shortlist_candidate_rejected,
-            SUM(CASE WHEN LOWER(TRIM(Shortlist_Candidate_Status)) = 'onhold' THEN 1 ELSE 0 END) AS shortlist_candidate_onhold
+            SUM(CASE WHEN LOWER(TRIM(Shortlist_Candidate_Status)) = 'onhold' THEN 1 ELSE 0 END) AS shortlist_candidate_onhold,
+            SUM(CASE WHEN LOWER(TRIM(Shortlist_Candidate_Status)) = 'candidate not interested' THEN 1 ELSE 0 END) AS shortlist_candidate_not_interested
         FROM job_fair_result
         $whereClause
         GROUP BY job_fair_no
@@ -215,12 +227,12 @@ render_header('Job Fair Exception Report', ['main_container_class' => 'container
         <form method="get" class="row g-3 align-items-end">
             <div class="col-md-3">
                 <label for="aggregator" class="form-label">Aggregator</label>
-                <select class="form-select" id="aggregator" name="aggregator">
-                    <option value="">All Aggregators</option>
+                <select class="form-select" id="aggregator" name="aggregator[]" multiple size="6">
                     <?php foreach ($aggregatorOptions as $option): ?>
-                        <option value="<?= esc($option) ?>" <?= $filters['aggregator'] === $option ? 'selected' : '' ?>><?= esc($option) ?></option>
+                        <option value="<?= esc($option) ?>" <?= in_array($option, $filters['aggregator'], true) ? 'selected' : '' ?>><?= esc($option) ?></option>
                     <?php endforeach; ?>
                 </select>
+                <div class="form-text">Hold Ctrl (Windows) or Command (Mac) to select multiple.</div>
             </div>
             <div class="col-md-3">
                 <label for="job_fair_no" class="form-label">Job Fair No</label>
@@ -242,12 +254,12 @@ render_header('Job Fair Exception Report', ['main_container_class' => 'container
             </div>
             <div class="col-md-3">
                 <label for="category" class="form-label">Category</label>
-                <select class="form-select" id="category" name="category">
-                    <option value="">All Categories</option>
+                <select class="form-select" id="category" name="category[]" multiple size="6">
                     <?php foreach ($categoryOptions as $option): ?>
-                        <option value="<?= esc($option) ?>" <?= $filters['category'] === $option ? 'selected' : '' ?>><?= esc($option) ?></option>
+                        <option value="<?= esc($option) ?>" <?= in_array($option, $filters['category'], true) ? 'selected' : '' ?>><?= esc($option) ?></option>
                     <?php endforeach; ?>
                 </select>
+                <div class="form-text">Hold Ctrl (Windows) or Command (Mac) to select multiple.</div>
             </div>
             <div class="col-12 d-flex gap-2">
                 <button type="submit" class="btn btn-primary">Apply filters</button>
@@ -271,7 +283,7 @@ render_header('Job Fair Exception Report', ['main_container_class' => 'container
                     <th colspan="3">Link Verified</th>
                     <th colspan="3">Offer Letter Receipt Confirmed</th>
                     <th colspan="3">Candidate Joined</th>
-                    <th colspan="4">Shortlist Candidate Status</th>
+                    <th colspan="5">Shortlist Candidate Status</th>
                 </tr>
                 <tr>
                     <th>Yes</th>
@@ -292,12 +304,13 @@ render_header('Job Fair Exception Report', ['main_container_class' => 'container
                     <th>Selected</th>
                     <th>Rejected</th>
                     <th>Onhold</th>
+                    <th>Candidate Not Interested</th>
                 </tr>
                 </thead>
                 <tbody>
                 <?php if ($rows === []): ?>
                     <tr>
-                        <td colspan="21" class="text-center text-muted">No data available.</td>
+                        <td colspan="22" class="text-center text-muted">No data available.</td>
                     </tr>
                 <?php endif; ?>
                 <?php foreach ($rows as $row): ?>
@@ -322,6 +335,7 @@ render_header('Job Fair Exception Report', ['main_container_class' => 'container
                         <td><?= render_linked_metric($filters, (string) $row['job_fair_no'], 'shortlist_candidate_selected', (int) $row['shortlist_candidate_selected']) ?></td>
                         <td><?= render_linked_metric($filters, (string) $row['job_fair_no'], 'shortlist_candidate_rejected', (int) $row['shortlist_candidate_rejected']) ?></td>
                         <td><?= render_linked_metric($filters, (string) $row['job_fair_no'], 'shortlist_candidate_onhold', (int) $row['shortlist_candidate_onhold']) ?></td>
+                        <td><?= render_linked_metric($filters, (string) $row['job_fair_no'], 'shortlist_candidate_not_interested', (int) $row['shortlist_candidate_not_interested']) ?></td>
                     </tr>
                 <?php endforeach; ?>
                 <?php if ($rows !== []): ?>
@@ -346,6 +360,7 @@ render_header('Job Fair Exception Report', ['main_container_class' => 'container
                         <td><?= $totals['shortlist_candidate_selected'] ?></td>
                         <td><?= $totals['shortlist_candidate_rejected'] ?></td>
                         <td><?= $totals['shortlist_candidate_onhold'] ?></td>
+                        <td><?= $totals['shortlist_candidate_not_interested'] ?></td>
                     </tr>
                 <?php endif; ?>
                 </tbody>

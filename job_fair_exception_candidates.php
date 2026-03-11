@@ -30,6 +30,7 @@ const EXCEPTION_METRIC_LABELS = [
     'shortlist_candidate_selected' => 'Shortlist Candidate Status: Selected',
     'shortlist_candidate_rejected' => 'Shortlist Candidate Status: Rejected',
     'shortlist_candidate_onhold' => 'Shortlist Candidate Status: Onhold',
+    'shortlist_candidate_not_interested' => 'Shortlist Candidate Status: Candidate Not Interested',
 ];
 
 function build_filters(): array
@@ -38,7 +39,7 @@ function build_filters(): array
     foreach (array_keys(EXCEPTION_FILTER_COLUMNS) as $key) {
         $value = $_GET[$key] ?? '';
 
-        if (in_array($key, ['job_fair_no', 'selection_status'], true)) {
+        if (in_array($key, ['aggregator', 'job_fair_no', 'selection_status', 'category'], true)) {
             if (!is_array($value)) {
                 $value = $value === '' ? [] : [$value];
             }
@@ -109,6 +110,9 @@ function apply_metric_clause(string $metric, array &$conditions): void
             break;
         case 'shortlist_candidate_onhold':
             $conditions[] = "LOWER(TRIM(Shortlist_Candidate_Status)) = 'onhold'";
+            break;
+        case 'shortlist_candidate_not_interested':
+            $conditions[] = "LOWER(TRIM(Shortlist_Candidate_Status)) = 'candidate not interested'";
             break;
         case 'total_count':
         default:
