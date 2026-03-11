@@ -331,11 +331,22 @@ render_header('Call History Report', [
         <table class="table table-bordered table-striped align-middle">
             <thead>
                 <tr>
-                    <th>User</th>
-                    <th>Total Calls</th>
-                    <th>Employer Connect</th>
-                    <th>Candidate Connect</th>
-                    <th>Aggregator Connect</th>
+                    <th rowspan="2">User</th>
+                    <th rowspan="2">Total Calls</th>
+                    <th colspan="3" class="text-center">Employer Connect</th>
+                    <th colspan="3" class="text-center">Candidate Connect</th>
+                    <th colspan="2" class="text-center">Aggregator Connect</th>
+                    <th colspan="3" class="text-center">Call Status</th>
+                </tr>
+                <tr>
+                    <th>Calls</th>
+                    <th>Employers</th>
+                    <th>Assigned Employers</th>
+                    <th>Calls</th>
+                    <th>Candidates</th>
+                    <th>Assigned Candidates</th>
+                    <th>Calls</th>
+                    <th>Aggregators</th>
                     <th>Attended</th>
                     <th>Not attended</th>
                     <th>Invalid number</th>
@@ -344,7 +355,7 @@ render_header('Call History Report', [
             <tbody>
                 <?php if ($summaryRows === []): ?>
                     <tr>
-                        <td colspan="8" class="text-center text-muted">No call history records found.</td>
+                        <td colspan="13" class="text-center text-muted">No call history records found.</td>
                     </tr>
                 <?php endif; ?>
                 <?php foreach ($summaryRows as $row): ?>
@@ -360,9 +371,14 @@ render_header('Call History Report', [
                     <tr>
                         <td><?= esc($memberKey) ?></td>
                         <td><?= $renderMetricCell((int) $row['total_calls'], $buildReportUrl(array_merge($memberQuery, ['metric' => 'total_calls']))) ?></td>
-                        <td><?= $renderMetricCell((int) $row['employer_connect_calls'], $buildReportUrl(array_merge($memberQuery, ['metric' => 'employer_connect'])), ($employerExtra > 0 ? ' [' . $employerExtra . ']' : '') . ($assignedEmployerExtra > 0 ? ' [' . $assignedEmployerExtra . ']' : '')) ?></td>
-                        <td><?= $renderMetricCell((int) $row['candidate_connect_calls'], $buildReportUrl(array_merge($memberQuery, ['metric' => 'candidate_connect'])), ($candidateExtra > 0 ? ' [' . $candidateExtra . ']' : '') . ($assignedCandidateExtra > 0 ? ' [' . $assignedCandidateExtra . ']' : '')) ?></td>
-                        <td><?= $renderMetricCell((int) $row['aggregator_contact_calls'], $buildReportUrl(array_merge($memberQuery, ['metric' => 'aggregator_connect'])), $aggregatorExtra > 0 ? ' [' . $aggregatorExtra . ']' : '') ?></td>
+                        <td><?= $renderMetricCell((int) $row['employer_connect_calls'], $buildReportUrl(array_merge($memberQuery, ['metric' => 'employer_connect']))) ?></td>
+                        <td><?= $employerExtra ?></td>
+                        <td><?= $assignedEmployerExtra ?></td>
+                        <td><?= $renderMetricCell((int) $row['candidate_connect_calls'], $buildReportUrl(array_merge($memberQuery, ['metric' => 'candidate_connect']))) ?></td>
+                        <td><?= $candidateExtra ?></td>
+                        <td><?= $assignedCandidateExtra ?></td>
+                        <td><?= $renderMetricCell((int) $row['aggregator_contact_calls'], $buildReportUrl(array_merge($memberQuery, ['metric' => 'aggregator_connect']))) ?></td>
+                        <td><?= $aggregatorExtra ?></td>
                         <td><?= $renderMetricCell((int) $row['attended_calls'], $buildReportUrl(array_merge($memberQuery, ['metric' => 'attended']))) ?></td>
                         <td><?= $renderMetricCell((int) $row['not_attended_calls'], $buildReportUrl(array_merge($memberQuery, ['metric' => 'not_attended']))) ?></td>
                         <td><?= $renderMetricCell((int) $row['invalid_number_calls'], $buildReportUrl(array_merge($memberQuery, ['metric' => 'invalid_number']))) ?></td>
@@ -372,9 +388,14 @@ render_header('Call History Report', [
                     <tr class="table-secondary fw-semibold">
                         <td>Total</td>
                         <td><?= $summaryTotals['total_calls'] ?></td>
-                        <td><?= $summaryTotals['employer_connect_calls'] ?><?= $summaryTotals['employer_connect_employer_count'] > 0 ? ' [' . $summaryTotals['employer_connect_employer_count'] . ']' : '' ?><?= $summaryTotals['assigned_employer_count'] > 0 ? ' [' . $summaryTotals['assigned_employer_count'] . ']' : '' ?></td>
-                        <td><?= $summaryTotals['candidate_connect_calls'] ?><?= $summaryTotals['candidate_connect_candidate_count'] > 0 ? ' [' . $summaryTotals['candidate_connect_candidate_count'] . ']' : '' ?><?= $summaryTotals['assigned_candidate_count'] > 0 ? ' [' . $summaryTotals['assigned_candidate_count'] . ']' : '' ?></td>
-                        <td><?= $summaryTotals['aggregator_contact_calls'] ?><?= $summaryTotals['aggregator_connect_aggregator_count'] > 0 ? ' [' . $summaryTotals['aggregator_connect_aggregator_count'] . ']' : '' ?></td>
+                        <td><?= $summaryTotals['employer_connect_calls'] ?></td>
+                        <td><?= $summaryTotals['employer_connect_employer_count'] ?></td>
+                        <td><?= $summaryTotals['assigned_employer_count'] ?></td>
+                        <td><?= $summaryTotals['candidate_connect_calls'] ?></td>
+                        <td><?= $summaryTotals['candidate_connect_candidate_count'] ?></td>
+                        <td><?= $summaryTotals['assigned_candidate_count'] ?></td>
+                        <td><?= $summaryTotals['aggregator_contact_calls'] ?></td>
+                        <td><?= $summaryTotals['aggregator_connect_aggregator_count'] ?></td>
                         <td><?= $summaryTotals['attended_calls'] ?></td>
                         <td><?= $summaryTotals['not_attended_calls'] ?></td>
                         <td><?= $summaryTotals['invalid_number_calls'] ?></td>
