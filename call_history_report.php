@@ -75,6 +75,14 @@ $summarySql = "
         j.CRM_Member,
         COUNT(h.id) AS total_calls,
         SUM(CASE WHEN h.stage = 'Employer Connect' THEN 1 ELSE 0 END) AS employer_connect_calls,
+        GROUP_CONCAT(
+            DISTINCT CASE
+                WHEN h.stage = 'Employer Connect' AND j.Employer_Name IS NOT NULL AND TRIM(j.Employer_Name) <> ''
+                    THEN j.Employer_Name
+                ELSE NULL
+            END
+            ORDER BY j.Employer_Name SEPARATOR ', '
+        ) AS employer_connect_employers,
         SUM(CASE WHEN h.stage = 'Candidate Connect' THEN 1 ELSE 0 END) AS candidate_connect_calls,
         SUM(CASE WHEN h.stage = 'Aggregator Contact' THEN 1 ELSE 0 END) AS aggregator_contact_calls,
         SUM(CASE WHEN h.call_status = 'Attended' THEN 1 ELSE 0 END) AS attended_calls,
@@ -191,10 +199,16 @@ render_header('Call History Report');
             <?php endif; ?>
             <?php foreach ($summaryRows as $row): ?>
                 <?php $memberKey = (string) ($row['CRM_Member'] ?? 'Unassigned'); ?>
+                <?php $employerConnectEmployers = trim((string) ($row['employer_connect_employers'] ?? '')); ?>
                 <tr>
                     <td><?= esc($memberKey) ?></td>
                     <td><?= (int) $row['total_calls'] ?></td>
-                    <td><?= (int) $row['employer_connect_calls'] ?></td>
+                    <td>
+                        <?= (int) $row['employer_connect_calls'] ?>
+                        <?php if ($employerConnectEmployers !== ''): ?>
+                            [<?= esc($employerConnectEmployers) ?>]
+                        <?php endif; ?>
+                    </td>
                     <td><?= (int) $row['candidate_connect_calls'] ?></td>
                     <td><?= (int) $row['aggregator_contact_calls'] ?></td>
                     <td><?= (int) $row['attended_calls'] ?></td>
