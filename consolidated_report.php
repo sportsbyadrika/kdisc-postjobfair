@@ -195,7 +195,7 @@ $shortlistedTotals = calculate_consolidated_totals($shortlistedRows, [
     'joined_pending',
 ]);
 
-render_header('Consolidated report');
+render_header('Consolidated report', ['main_container_class' => 'container-fluid']);
 ?>
 <h1 class="h3 mb-4">Consolidated report</h1>
 
@@ -254,22 +254,29 @@ render_header('Consolidated report');
             <table class="table table-bordered table-striped align-middle mb-0">
                 <thead>
                 <tr>
-                    <th>Job Fair No</th>
-                    <th>Total Selected Candidate</th>
-                    <th>Offer Letter Generated (Yes)</th>
-                    <th>Offer Letter Generated (No)</th>
-                    <th>Offer Letter Generated (Pending)</th>
-                    <th>Link to Offer Letter (With Link)</th>
-                    <th>Link to Offer Letter (Blank)</th>
-                    <th>Link Verified (Yes)</th>
-                    <th>Link Verified (No)</th>
-                    <th>Link Verified (Pending)</th>
-                    <th>Offer Letter Receipt Confirmed (Yes)</th>
-                    <th>Offer Letter Receipt Confirmed (No)</th>
-                    <th>Offer Letter Receipt Confirmed (Pending)</th>
-                    <th>Candidate Joined (Yes)</th>
-                    <th>Candidate Joined (No)</th>
-                    <th>Candidate Joined (Pending)</th>
+                    <th rowspan="2">Job Fair No</th>
+                    <th rowspan="2">Total Selected Candidate</th>
+                    <th colspan="3" class="text-center">Offer Letter Generated</th>
+                    <th colspan="2" class="text-center">Link to Offer Letter</th>
+                    <th colspan="3" class="text-center">Link Verified</th>
+                    <th colspan="3" class="text-center">Offer Letter Receipt</th>
+                    <th colspan="3" class="text-center">Candidate Joined</th>
+                </tr>
+                <tr>
+                    <th>Yes</th>
+                    <th>No</th>
+                    <th>Pending</th>
+                    <th>With Link</th>
+                    <th>Blank</th>
+                    <th>Yes</th>
+                    <th>No</th>
+                    <th>Pending</th>
+                    <th>Yes</th>
+                    <th>No</th>
+                    <th>Pending</th>
+                    <th>Yes</th>
+                    <th>No</th>
+                    <th>Pending</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -329,26 +336,34 @@ render_header('Consolidated report');
             <table class="table table-bordered table-striped align-middle mb-0">
                 <thead>
                 <tr>
-                    <th>Job Fair No</th>
-                    <th>Total Shortlisted/Onhold Candidate</th>
-                    <th>Shortlisted Conversion (Shortlisted)</th>
-                    <th>Shortlisted Conversion (Selected)</th>
-                    <th>Shortlisted Conversion (Rejected)</th>
-                    <th>Shortlisted Conversion (Onhold)</th>
-                    <th>Offer Letter Generated (Yes)</th>
-                    <th>Offer Letter Generated (No)</th>
-                    <th>Offer Letter Generated (Pending)</th>
-                    <th>Link to Offer Letter (With Link)</th>
-                    <th>Link to Offer Letter (Blank)</th>
-                    <th>Link Verified (Yes)</th>
-                    <th>Link Verified (No)</th>
-                    <th>Link Verified (Pending)</th>
-                    <th>Offer Letter Receipt Confirmed (Yes)</th>
-                    <th>Offer Letter Receipt Confirmed (No)</th>
-                    <th>Offer Letter Receipt Confirmed (Pending)</th>
-                    <th>Candidate Joined (Yes)</th>
-                    <th>Candidate Joined (No)</th>
-                    <th>Candidate Joined (Pending)</th>
+                    <th rowspan="2">Job Fair No</th>
+                    <th rowspan="2">Total Shortlisted/Onhold Candidate</th>
+                    <th colspan="4" class="text-center">Shortlisted Conversion</th>
+                    <th colspan="3" class="text-center">Offer Letter Generated</th>
+                    <th colspan="2" class="text-center">Link to Offer Letter</th>
+                    <th colspan="3" class="text-center">Link Verified</th>
+                    <th colspan="3" class="text-center">Offer Letter Receipt Confirmed</th>
+                    <th colspan="3" class="text-center">Candidate Joined</th>
+                </tr>
+                <tr>
+                    <th>Shortlisted</th>
+                    <th>Selected</th>
+                    <th>Rejected</th>
+                    <th>Onhold</th>
+                    <th>Yes</th>
+                    <th>No</th>
+                    <th>Pending</th>
+                    <th>With Link</th>
+                    <th>Blank</th>
+                    <th>Yes</th>
+                    <th>No</th>
+                    <th>Pending</th>
+                    <th>Yes</th>
+                    <th>No</th>
+                    <th>Pending</th>
+                    <th>Yes</th>
+                    <th>No</th>
+                    <th>Pending</th>
                 </tr>
                 </thead>
                 <tbody>
