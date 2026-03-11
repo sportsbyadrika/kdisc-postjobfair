@@ -54,6 +54,44 @@ $dateTo = trim((string) ($_GET['date_to'] ?? ''));
 $hasDateFrom = preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateFrom) === 1;
 $hasDateTo = preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateTo) === 1;
 
+$viewMode = ($_GET['view'] ?? '') === 'details' ? 'details' : 'summary';
+$selectedMetric = trim((string) ($_GET['metric'] ?? 'total_calls'));
+
+$metricConfig = [
+    'total_calls' => [
+        'label' => 'Total Calls',
+        'condition' => '',
+    ],
+    'employer_connect' => [
+        'label' => 'Employer Connect',
+        'condition' => "h.stage = 'Employer Connect'",
+    ],
+    'candidate_connect' => [
+        'label' => 'Candidate Connect',
+        'condition' => "h.stage = 'Candidate Connect'",
+    ],
+    'aggregator_connect' => [
+        'label' => 'Aggregator Connect',
+        'condition' => "h.stage = 'Aggregator Contact'",
+    ],
+    'attended' => [
+        'label' => 'Attended',
+        'condition' => "h.call_status = 'Attended'",
+    ],
+    'not_attended' => [
+        'label' => 'Not attended',
+        'condition' => "h.call_status = 'Not attended'",
+    ],
+    'invalid_number' => [
+        'label' => 'Invalid number',
+        'condition' => "h.call_status = 'Invalid number'",
+    ],
+];
+
+if (!isset($metricConfig[$selectedMetric])) {
+    $selectedMetric = 'total_calls';
+}
+
 $baseConditions = ["j.CRM_Member IS NOT NULL", "TRIM(j.CRM_Member) <> ''"];
 $baseParams = [];
 if ($selectedMember !== '') {
@@ -81,7 +119,17 @@ $summarySql = "
             ELSE NULL
         END) AS employer_connect_employer_count,
         SUM(CASE WHEN h.stage = 'Candidate Connect' THEN 1 ELSE 0 END) AS candidate_connect_calls,
+        COUNT(DISTINCT CASE
+            WHEN h.stage = 'Candidate Connect'
+                THEN h.candidate_id
+            ELSE NULL
+        END) AS candidate_connect_candidate_count,
         SUM(CASE WHEN h.stage = 'Aggregator Contact' THEN 1 ELSE 0 END) AS aggregator_contact_calls,
+        COUNT(DISTINCT CASE
+            WHEN h.stage = 'Aggregator Contact' AND j.Aggregator IS NOT NULL AND TRIM(j.Aggregator) <> ''
+                THEN j.Aggregator
+            ELSE NULL
+        END) AS aggregator_connect_aggregator_count,
         SUM(CASE WHEN h.call_status = 'Attended' THEN 1 ELSE 0 END) AS attended_calls,
         SUM(CASE WHEN h.call_status = 'Not attended' THEN 1 ELSE 0 END) AS not_attended_calls,
         SUM(CASE WHEN h.call_status = 'Invalid number' THEN 1 ELSE 0 END) AS invalid_number_calls
@@ -99,8 +147,11 @@ $summaryRows = $summaryStmt->fetchAll();
 $summaryTotals = [
     'total_calls' => 0,
     'employer_connect_calls' => 0,
+    'employer_connect_employer_count' => 0,
     'candidate_connect_calls' => 0,
+    'candidate_connect_candidate_count' => 0,
     'aggregator_contact_calls' => 0,
+    'aggregator_connect_aggregator_count' => 0,
     'attended_calls' => 0,
     'not_attended_calls' => 0,
     'invalid_number_calls' => 0,
@@ -110,6 +161,14 @@ foreach ($summaryRows as $summaryRow) {
         $summaryTotals[$totalKey] += (int) ($summaryRow[$totalKey] ?? 0);
     }
 }
+
+$detailConditions = $baseConditions;
+$detailParams = $baseParams;
+$metricCondition = (string) ($metricConfig[$selectedMetric]['condition'] ?? '');
+if ($viewMode === 'details' && $metricCondition !== '') {
+    $detailConditions[] = $metricCondition;
+}
+$detailWhereSql = ' WHERE ' . implode(' AND ', $detailConditions);
 
 $detailSql = "
     SELECT
@@ -123,160 +182,186 @@ $detailSql = "
         j.Job_Fair_No,
         j.Candidate_Name,
         j.Mobile_Number,
-        j.Selection_Status
+        j.Selection_Status,
+        j.Employer_Name,
+        j.Aggregator
     FROM candidate_call_history h
     INNER JOIN job_fair_result j ON j.id = h.candidate_id
     LEFT JOIN candidate_call_purpose p ON p.id = h.purpose_id
-    " . $whereSql . "
-    ORDER BY j.CRM_Member, h.call_datetime DESC, h.id DESC";
+    " . $detailWhereSql . "
+    ORDER BY h.call_datetime DESC, h.id DESC";
 $detailStmt = db()->prepare($detailSql);
-$detailStmt->execute($baseParams);
+$detailStmt->execute($detailParams);
 $details = $detailStmt->fetchAll();
 
-$detailsByMember = [];
-foreach ($details as $detail) {
-    $member = (string) ($detail['CRM_Member'] ?? 'Unassigned');
-    $detailsByMember[$member][] = $detail;
+$baseQueryParams = [];
+if ($hasDateFrom) {
+    $baseQueryParams['date_from'] = $dateFrom;
 }
+if ($hasDateTo) {
+    $baseQueryParams['date_to'] = $dateTo;
+}
+
+$buildReportUrl = static function (array $params) use ($baseQueryParams): string {
+    $query = array_merge($baseQueryParams, $params);
+    return '/call_history_report.php?' . http_build_query($query);
+};
+
+$renderMetricCell = static function (int $value, string $url, string $extraText = ''): string {
+    if ($value <= 0) {
+        return (string) $value;
+    }
+
+    return '<a href="' . esc($url) . '" target="_blank" rel="noopener noreferrer">' . $value . '</a>' . $extraText;
+};
 
 render_header('Call History Report');
 ?>
-<h1 class="h3 mb-3">User-wise Call History Report</h1>
-
-<div class="card mb-3">
-    <div class="card-body">
-        <form method="get" class="row g-2 align-items-end">
-            <div class="col-12 col-md-4 col-lg-3">
-                <label for="crm_member" class="form-label">Filter by User</label>
-                <select id="crm_member" name="crm_member" class="form-select">
-                    <option value="">All Users</option>
-                    <?php foreach ($crmMemberOptions as $memberOption): ?>
-                        <option value="<?= esc((string) $memberOption) ?>" <?= $selectedMember === (string) $memberOption ? 'selected' : '' ?>>
-                            <?= esc((string) $memberOption) ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
+<?php if ($viewMode === 'details'): ?>
+    <h1 class="h3 mb-3">Call Details Report</h1>
+    <div class="card mb-3">
+        <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div>
+                <div><strong>Metric:</strong> <?= esc((string) $metricConfig[$selectedMetric]['label']) ?></div>
+                <div><strong>User:</strong> <?= $selectedMember !== '' ? esc($selectedMember) : 'All Users' ?></div>
+                <div><strong>Date Range:</strong> <?= esc($hasDateFrom ? $dateFrom : '-') ?> to <?= esc($hasDateTo ? $dateTo : '-') ?></div>
             </div>
-            <div class="col-12 col-md-4 col-lg-3">
-                <label for="date_from" class="form-label">Date from</label>
-                <input type="date" id="date_from" name="date_from" class="form-control" value="<?= esc($hasDateFrom ? $dateFrom : '') ?>">
+            <div>
+                <a class="btn btn-outline-secondary" href="<?= esc($buildReportUrl(['crm_member' => $selectedMember])) ?>">Back to Summary</a>
             </div>
-            <div class="col-12 col-md-4 col-lg-3">
-                <label for="date_to" class="form-label">Date to</label>
-                <input type="date" id="date_to" name="date_to" class="form-control" value="<?= esc($hasDateTo ? $dateTo : '') ?>">
-            </div>
-            <div class="col-auto d-flex gap-2">
-                <button type="submit" class="btn btn-primary">Apply</button>
-                <a href="/call_history_report.php" class="btn btn-outline-secondary">Reset</a>
-            </div>
-        </form>
+        </div>
     </div>
-</div>
 
-<div class="table-responsive">
-    <table class="table table-bordered table-striped align-middle">
-        <thead>
-            <tr>
-                <th>User</th>
-                <th>Total Calls</th>
-                <th>Employer Connect</th>
-                <th>Candidate Connect</th>
-                <th>Aggregator Contact</th>
-                <th>Attended</th>
-                <th>Not attended</th>
-                <th>Invalid number</th>
-                <th>Details</th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php if ($summaryRows === []): ?>
+    <div class="table-responsive">
+        <table class="table table-bordered table-striped align-middle">
+            <thead>
                 <tr>
-                    <td colspan="9" class="text-center text-muted">No call history records found.</td>
+                    <th>Call Date/Time</th>
+                    <th>User</th>
+                    <th>Candidate</th>
+                    <th>Mobile</th>
+                    <th>Job Fair No</th>
+                    <th>Employer</th>
+                    <th>Aggregator</th>
+                    <th>Selection Status</th>
+                    <th>Stage</th>
+                    <th>Purpose</th>
+                    <th>Call Status</th>
+                    <th>Remarks</th>
                 </tr>
-            <?php endif; ?>
-            <?php foreach ($summaryRows as $row): ?>
-                <?php $memberKey = (string) ($row['CRM_Member'] ?? 'Unassigned'); ?>
-                <?php $employerConnectEmployerCount = (int) ($row['employer_connect_employer_count'] ?? 0); ?>
+            </thead>
+            <tbody>
+                <?php if ($details === []): ?>
+                    <tr>
+                        <td colspan="12" class="text-center text-muted">No call history records found for the selected filter.</td>
+                    </tr>
+                <?php endif; ?>
+                <?php foreach ($details as $detail): ?>
+                    <tr>
+                        <td><?= esc((string) $detail['call_datetime']) ?></td>
+                        <td><?= esc((string) ($detail['CRM_Member'] ?? '-')) ?></td>
+                        <td><?= esc((string) ($detail['Candidate_Name'] ?? '-')) ?></td>
+                        <td><?= esc((string) ($detail['Mobile_Number'] ?? '-')) ?></td>
+                        <td><?= esc((string) ($detail['Job_Fair_No'] ?? '-')) ?></td>
+                        <td><?= esc((string) ($detail['Employer_Name'] ?? '-')) ?></td>
+                        <td><?= esc((string) ($detail['Aggregator'] ?? '-')) ?></td>
+                        <td><?= esc((string) ($detail['Selection_Status'] ?? '-')) ?></td>
+                        <td><?= esc((string) $detail['stage']) ?></td>
+                        <td><?= esc((string) ($detail['purpose_name'] ?? '-')) ?></td>
+                        <td><?= esc((string) $detail['call_status']) ?></td>
+                        <td><?= esc((string) ($detail['call_remarks'] ?? '-')) ?></td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+<?php else: ?>
+    <h1 class="h3 mb-3">User-wise Call History Report</h1>
+
+    <div class="card mb-3">
+        <div class="card-body">
+            <form method="get" class="row g-2 align-items-end">
+                <div class="col-12 col-md-4 col-lg-3">
+                    <label for="crm_member" class="form-label">Filter by User</label>
+                    <select id="crm_member" name="crm_member" class="form-select">
+                        <option value="">All Users</option>
+                        <?php foreach ($crmMemberOptions as $memberOption): ?>
+                            <option value="<?= esc((string) $memberOption) ?>" <?= $selectedMember === (string) $memberOption ? 'selected' : '' ?>>
+                                <?= esc((string) $memberOption) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="col-12 col-md-4 col-lg-3">
+                    <label for="date_from" class="form-label">Date from</label>
+                    <input type="date" id="date_from" name="date_from" class="form-control" value="<?= esc($hasDateFrom ? $dateFrom : '') ?>">
+                </div>
+                <div class="col-12 col-md-4 col-lg-3">
+                    <label for="date_to" class="form-label">Date to</label>
+                    <input type="date" id="date_to" name="date_to" class="form-control" value="<?= esc($hasDateTo ? $dateTo : '') ?>">
+                </div>
+                <div class="col-auto d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">Apply</button>
+                    <a href="/call_history_report.php" class="btn btn-outline-secondary">Reset</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-bordered table-striped align-middle">
+            <thead>
                 <tr>
-                    <td><?= esc($memberKey) ?></td>
-                    <td><?= (int) $row['total_calls'] ?></td>
-                    <td>
-                        <?= (int) $row['employer_connect_calls'] ?>
-                        <?php if ($employerConnectEmployerCount > 0): ?>
-                            [<?= $employerConnectEmployerCount ?>]
-                        <?php endif; ?>
-                    </td>
-                    <td><?= (int) $row['candidate_connect_calls'] ?></td>
-                    <td><?= (int) $row['aggregator_contact_calls'] ?></td>
-                    <td><?= (int) $row['attended_calls'] ?></td>
-                    <td><?= (int) $row['not_attended_calls'] ?></td>
-                    <td><?= (int) $row['invalid_number_calls'] ?></td>
-                    <td>
-                        <button
-                            class="btn btn-sm btn-outline-primary px-2"
-                            type="button"
-                            data-bs-toggle="collapse"
-                            data-bs-target="#call-history-<?= md5($memberKey) ?>"
-                            aria-label="View details for <?= esc($memberKey) ?>"
-                            title="View details"
-                        >
-                            <span aria-hidden="true">▾</span>
-                            <span class="visually-hidden">View details</span>
-                        </button>
-                    </td>
+                    <th>User</th>
+                    <th>Total Calls</th>
+                    <th>Employer Connect</th>
+                    <th>Candidate Connect</th>
+                    <th>Aggregator Connect</th>
+                    <th>Attended</th>
+                    <th>Not attended</th>
+                    <th>Invalid number</th>
                 </tr>
-                <tr class="collapse" id="call-history-<?= md5($memberKey) ?>">
-                    <td colspan="9">
-                        <div class="table-responsive">
-                            <table class="table table-sm table-hover mb-0">
-                                <thead>
-                                    <tr>
-                                        <th>Call Date/Time</th>
-                                        <th>Candidate</th>
-                                        <th>Mobile</th>
-                                        <th>Job Fair No</th>
-                                        <th>Selection Status</th>
-                                        <th>Stage</th>
-                                        <th>Purpose</th>
-                                        <th>Call Status</th>
-                                        <th>Remarks</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php foreach (($detailsByMember[$memberKey] ?? []) as $detail): ?>
-                                        <tr>
-                                            <td><?= esc((string) $detail['call_datetime']) ?></td>
-                                            <td><?= esc((string) ($detail['Candidate_Name'] ?? '-')) ?></td>
-                                            <td><?= esc((string) ($detail['Mobile_Number'] ?? '-')) ?></td>
-                                            <td><?= esc((string) ($detail['Job_Fair_No'] ?? '-')) ?></td>
-                                            <td><?= esc((string) ($detail['Selection_Status'] ?? '-')) ?></td>
-                                            <td><?= esc((string) $detail['stage']) ?></td>
-                                            <td><?= esc((string) ($detail['purpose_name'] ?? '-')) ?></td>
-                                            <td><?= esc((string) $detail['call_status']) ?></td>
-                                            <td><?= esc((string) ($detail['call_remarks'] ?? '-')) ?></td>
-                                        </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
-                            </table>
-                        </div>
-                    </td>
-                </tr>
-            <?php endforeach; ?>
-            <?php if ($summaryRows !== []): ?>
-                <tr class="table-secondary fw-semibold">
-                    <td>Total</td>
-                    <td><?= $summaryTotals['total_calls'] ?></td>
-                    <td><?= $summaryTotals['employer_connect_calls'] ?></td>
-                    <td><?= $summaryTotals['candidate_connect_calls'] ?></td>
-                    <td><?= $summaryTotals['aggregator_contact_calls'] ?></td>
-                    <td><?= $summaryTotals['attended_calls'] ?></td>
-                    <td><?= $summaryTotals['not_attended_calls'] ?></td>
-                    <td><?= $summaryTotals['invalid_number_calls'] ?></td>
-                    <td>-</td>
-                </tr>
-            <?php endif; ?>
-        </tbody>
-    </table>
-</div>
+            </thead>
+            <tbody>
+                <?php if ($summaryRows === []): ?>
+                    <tr>
+                        <td colspan="8" class="text-center text-muted">No call history records found.</td>
+                    </tr>
+                <?php endif; ?>
+                <?php foreach ($summaryRows as $row): ?>
+                    <?php $memberKey = (string) ($row['CRM_Member'] ?? 'Unassigned'); ?>
+                    <?php
+                    $memberQuery = ['view' => 'details', 'crm_member' => $memberKey];
+                    $employerExtra = (int) ($row['employer_connect_employer_count'] ?? 0);
+                    $candidateExtra = (int) ($row['candidate_connect_candidate_count'] ?? 0);
+                    $aggregatorExtra = (int) ($row['aggregator_connect_aggregator_count'] ?? 0);
+                    ?>
+                    <tr>
+                        <td><?= esc($memberKey) ?></td>
+                        <td><?= $renderMetricCell((int) $row['total_calls'], $buildReportUrl(array_merge($memberQuery, ['metric' => 'total_calls']))) ?></td>
+                        <td><?= $renderMetricCell((int) $row['employer_connect_calls'], $buildReportUrl(array_merge($memberQuery, ['metric' => 'employer_connect'])), $employerExtra > 0 ? ' [' . $employerExtra . ']' : '') ?></td>
+                        <td><?= $renderMetricCell((int) $row['candidate_connect_calls'], $buildReportUrl(array_merge($memberQuery, ['metric' => 'candidate_connect'])), $candidateExtra > 0 ? ' [' . $candidateExtra . ']' : '') ?></td>
+                        <td><?= $renderMetricCell((int) $row['aggregator_contact_calls'], $buildReportUrl(array_merge($memberQuery, ['metric' => 'aggregator_connect'])), $aggregatorExtra > 0 ? ' [' . $aggregatorExtra . ']' : '') ?></td>
+                        <td><?= $renderMetricCell((int) $row['attended_calls'], $buildReportUrl(array_merge($memberQuery, ['metric' => 'attended']))) ?></td>
+                        <td><?= $renderMetricCell((int) $row['not_attended_calls'], $buildReportUrl(array_merge($memberQuery, ['metric' => 'not_attended']))) ?></td>
+                        <td><?= $renderMetricCell((int) $row['invalid_number_calls'], $buildReportUrl(array_merge($memberQuery, ['metric' => 'invalid_number']))) ?></td>
+                    </tr>
+                <?php endforeach; ?>
+                <?php if ($summaryRows !== []): ?>
+                    <tr class="table-secondary fw-semibold">
+                        <td>Total</td>
+                        <td><?= $summaryTotals['total_calls'] ?></td>
+                        <td><?= $summaryTotals['employer_connect_calls'] ?><?= $summaryTotals['employer_connect_employer_count'] > 0 ? ' [' . $summaryTotals['employer_connect_employer_count'] . ']' : '' ?></td>
+                        <td><?= $summaryTotals['candidate_connect_calls'] ?><?= $summaryTotals['candidate_connect_candidate_count'] > 0 ? ' [' . $summaryTotals['candidate_connect_candidate_count'] . ']' : '' ?></td>
+                        <td><?= $summaryTotals['aggregator_contact_calls'] ?><?= $summaryTotals['aggregator_connect_aggregator_count'] > 0 ? ' [' . $summaryTotals['aggregator_connect_aggregator_count'] . ']' : '' ?></td>
+                        <td><?= $summaryTotals['attended_calls'] ?></td>
+                        <td><?= $summaryTotals['not_attended_calls'] ?></td>
+                        <td><?= $summaryTotals['invalid_number_calls'] ?></td>
+                    </tr>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+<?php endif; ?>
 
 <?php render_footer(); ?>
