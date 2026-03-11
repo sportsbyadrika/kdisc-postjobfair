@@ -36,7 +36,18 @@ function build_filters(): array
 {
     $filters = [];
     foreach (array_keys(EXCEPTION_FILTER_COLUMNS) as $key) {
-        $filters[$key] = trim((string) ($_GET[$key] ?? ''));
+        $value = $_GET[$key] ?? '';
+
+        if (in_array($key, ['job_fair_no', 'selection_status'], true)) {
+            if (!is_array($value)) {
+                $value = $value === '' ? [] : [$value];
+            }
+
+            $filters[$key] = array_values(array_filter(array_map(static fn($item): string => trim((string) $item), $value), static fn(string $item): bool => $item !== ''));
+            continue;
+        }
+
+        $filters[$key] = trim((string) $value);
     }
 
     return $filters;
@@ -111,12 +122,27 @@ function fetch_exception_candidates(array $filters, string $jobFairRow, string $
     $conditions = [];
 
     foreach (EXCEPTION_FILTER_COLUMNS as $filterKey => $column) {
-        if ($filters[$filterKey] === '') {
+        $value = $filters[$filterKey];
+        if (is_array($value)) {
+            if ($value === []) {
+                continue;
+            }
+
+            $placeholders = implode(', ', array_fill(0, count($value), '?'));
+            $conditions[] = "$column IN ($placeholders)";
+            foreach ($value as $item) {
+                $params[] = $item;
+            }
+
+            continue;
+        }
+
+        if ($value === '') {
             continue;
         }
 
         $conditions[] = "$column = ?";
-        $params[] = $filters[$filterKey];
+        $params[] = $value;
     }
 
     if ($jobFairRow === 'Unknown') {

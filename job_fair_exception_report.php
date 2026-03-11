@@ -69,10 +69,20 @@ function fetch_filter_options(string $column): array
 
 function build_exception_filters(): array
 {
+    $jobFairNo = $_GET['job_fair_no'] ?? [];
+    if (!is_array($jobFairNo)) {
+        $jobFairNo = $jobFairNo === '' ? [] : [$jobFairNo];
+    }
+
+    $selectionStatus = $_GET['selection_status'] ?? [];
+    if (!is_array($selectionStatus)) {
+        $selectionStatus = $selectionStatus === '' ? [] : [$selectionStatus];
+    }
+
     return [
         'aggregator' => trim((string) ($_GET['aggregator'] ?? '')),
-        'job_fair_no' => trim((string) ($_GET['job_fair_no'] ?? '')),
-        'selection_status' => trim((string) ($_GET['selection_status'] ?? '')),
+        'job_fair_no' => array_values(array_filter(array_map(static fn($value): string => trim((string) $value), $jobFairNo), static fn(string $value): bool => $value !== '')),
+        'selection_status' => array_values(array_filter(array_map(static fn($value): string => trim((string) $value), $selectionStatus), static fn(string $value): bool => $value !== '')),
         'category' => trim((string) ($_GET['category'] ?? '')),
     ];
 }
@@ -82,12 +92,27 @@ function build_exception_where_clause(array $filters, array &$params): string
     $conditions = [];
 
     foreach (EXCEPTION_FILTER_COLUMNS as $filterKey => $column) {
-        if (($filters[$filterKey] ?? '') === '') {
+        $value = $filters[$filterKey] ?? '';
+        if (is_array($value)) {
+            if ($value === []) {
+                continue;
+            }
+
+            $placeholders = implode(', ', array_fill(0, count($value), '?'));
+            $conditions[] = "$column IN ($placeholders)";
+            foreach ($value as $item) {
+                $params[] = $item;
+            }
+
+            continue;
+        }
+
+        if ($value === '') {
             continue;
         }
 
         $conditions[] = "$column = ?";
-        $params[] = $filters[$filterKey];
+        $params[] = $value;
     }
 
     if ($conditions === []) {
@@ -156,7 +181,7 @@ function build_exception_detail_url(array $filters, string $jobFairNo, string $m
     ];
 
     foreach (array_keys(EXCEPTION_FILTER_COLUMNS) as $key) {
-        if (($filters[$key] ?? '') !== '') {
+        if (!empty($filters[$key])) {
             $query[$key] = $filters[$key];
         }
     }
@@ -199,21 +224,21 @@ render_header('Job Fair Exception Report', ['main_container_class' => 'container
             </div>
             <div class="col-md-3">
                 <label for="job_fair_no" class="form-label">Job Fair No</label>
-                <select class="form-select" id="job_fair_no" name="job_fair_no">
-                    <option value="">All Job Fairs</option>
+                <select class="form-select" id="job_fair_no" name="job_fair_no[]" multiple size="6">
                     <?php foreach ($jobFairNoOptions as $option): ?>
-                        <option value="<?= esc($option) ?>" <?= $filters['job_fair_no'] === $option ? 'selected' : '' ?>><?= esc($option) ?></option>
+                        <option value="<?= esc($option) ?>" <?= in_array($option, $filters['job_fair_no'], true) ? 'selected' : '' ?>><?= esc($option) ?></option>
                     <?php endforeach; ?>
                 </select>
+                <div class="form-text">Hold Ctrl (Windows) or Command (Mac) to select multiple.</div>
             </div>
             <div class="col-md-3">
                 <label for="selection_status" class="form-label">Selection Status</label>
-                <select class="form-select" id="selection_status" name="selection_status">
-                    <option value="">All Selection Statuses</option>
+                <select class="form-select" id="selection_status" name="selection_status[]" multiple size="6">
                     <?php foreach ($selectionStatusOptions as $option): ?>
-                        <option value="<?= esc($option) ?>" <?= $filters['selection_status'] === $option ? 'selected' : '' ?>><?= esc($option) ?></option>
+                        <option value="<?= esc($option) ?>" <?= in_array($option, $filters['selection_status'], true) ? 'selected' : '' ?>><?= esc($option) ?></option>
                     <?php endforeach; ?>
                 </select>
+                <div class="form-text">Hold Ctrl (Windows) or Command (Mac) to select multiple.</div>
             </div>
             <div class="col-md-3">
                 <label for="category" class="form-label">Category</label>
