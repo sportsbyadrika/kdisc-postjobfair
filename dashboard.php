@@ -79,15 +79,96 @@ render_header('Dashboard');
 <h1 class="h3 mb-4">Welcome, <?= esc($user['name']) ?></h1>
 <div class="row g-3 mb-3">
     <?php if ($user['role'] === 'administrator'): ?>
-        <div class="col-12 col-md-6 col-lg-3"><div class="card card-stat"><div class="card-body"><p class="text-muted mb-1">Active Users</p><h2 class="h4"><?= $totalUsers ?></h2><a href="/users.php">Manage</a></div></div></div>
+        <div class="col-12 col-md-6 col-lg-3">
+            <div class="card card-stat h-100">
+                <div class="card-body d-flex align-items-start justify-content-between gap-2">
+                    <div>
+                        <p class="text-muted mb-1">Active Users</p>
+                        <h2 class="h4 mb-1"><?= $totalUsers ?></h2>
+                        <a href="/users.php">Manage</a>
+                    </div>
+                    <i class="bi bi-people-fill stat-icon text-primary" aria-hidden="true"></i>
+                </div>
+            </div>
+        </div>
     <?php endif; ?>
-    <div class="col-12 col-md-6 col-lg-3"><div class="card card-stat"><div class="card-body"><p class="text-muted mb-1">Selected</p><h2 class="h4"><?= $selectedCount ?></h2></div></div></div>
-    <div class="col-12 col-md-6 col-lg-3"><div class="card card-stat"><div class="card-body"><p class="text-muted mb-1">Shortlisted</p><h2 class="h4"><?= $shortlistedCount ?></h2></div></div></div>
-    <div class="col-12 col-md-6 col-lg-3"><div class="card card-stat"><div class="card-body"><p class="text-muted mb-1">On hold</p><h2 class="h4"><?= $onHoldCount ?></h2></div></div></div>
-    <div class="col-12 col-md-6 col-lg-3"><div class="card card-stat"><div class="card-body"><p class="text-muted mb-1">Shortlist/On Hold Selected</p><h2 class="h4"><?= $shortlistOnHoldSelectedCount ?></h2></div></div></div>
-    <div class="col-12 col-md-6 col-lg-3"><div class="card card-stat"><div class="card-body"><p class="text-muted mb-1">Total Selected</p><h2 class="h4"><?= $totalSelectedCount ?></h2></div></div></div>
-    <div class="col-12 col-md-6 col-lg-3"><div class="card card-stat"><div class="card-body"><p class="text-muted mb-1">Total Joined</p><h2 class="h4"><?= $totalJoinedCount ?></h2></div></div></div>
-    <div class="col-12 col-md-6 col-lg-3"><div class="card card-stat"><div class="card-body"><p class="text-muted mb-1">Total Calls</p><h2 class="h4"><?= $totalCallsCount ?></h2></div></div></div>
+    <div class="col-12 col-md-6 col-lg-3">
+        <div class="card card-stat h-100">
+            <div class="card-body d-flex align-items-start justify-content-between gap-2">
+                <div>
+                    <p class="text-muted mb-1">Selected</p>
+                    <h2 class="h4 mb-0"><?= $selectedCount ?></h2>
+                </div>
+                <i class="bi bi-check-circle-fill stat-icon text-success" aria-hidden="true"></i>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-md-6 col-lg-3">
+        <div class="card card-stat h-100">
+            <div class="card-body d-flex align-items-start justify-content-between gap-2">
+                <div>
+                    <p class="text-muted mb-1">Shortlisted</p>
+                    <h2 class="h4 mb-0"><?= $shortlistedCount ?></h2>
+                </div>
+                <i class="bi bi-list-check stat-icon text-info" aria-hidden="true"></i>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-md-6 col-lg-3">
+        <div class="card card-stat h-100">
+            <div class="card-body d-flex align-items-start justify-content-between gap-2">
+                <div>
+                    <p class="text-muted mb-1">On hold</p>
+                    <h2 class="h4 mb-0"><?= $onHoldCount ?></h2>
+                </div>
+                <i class="bi bi-pause-circle-fill stat-icon text-warning" aria-hidden="true"></i>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-md-6 col-lg-3">
+        <div class="card card-stat h-100">
+            <div class="card-body d-flex align-items-start justify-content-between gap-2">
+                <div>
+                    <p class="text-muted mb-1">Shortlist/On Hold Selected</p>
+                    <h2 class="h4 mb-0"><?= $shortlistOnHoldSelectedCount ?></h2>
+                </div>
+                <i class="bi bi-person-check-fill stat-icon text-secondary" aria-hidden="true"></i>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-md-6 col-lg-3">
+        <div class="card card-stat h-100">
+            <div class="card-body d-flex align-items-start justify-content-between gap-2">
+                <div>
+                    <p class="text-muted mb-1">Total Selected</p>
+                    <h2 class="h4 mb-0"><?= $totalSelectedCount ?></h2>
+                </div>
+                <i class="bi bi-person-badge-fill stat-icon text-primary" aria-hidden="true"></i>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-md-6 col-lg-3">
+        <div class="card card-stat h-100">
+            <div class="card-body d-flex align-items-start justify-content-between gap-2">
+                <div>
+                    <p class="text-muted mb-1">Total Joined</p>
+                    <h2 class="h4 mb-0"><?= $totalJoinedCount ?></h2>
+                </div>
+                <i class="bi bi-door-open-fill stat-icon text-success" aria-hidden="true"></i>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-md-6 col-lg-3">
+        <div class="card card-stat h-100">
+            <div class="card-body d-flex align-items-start justify-content-between gap-2">
+                <div>
+                    <p class="text-muted mb-1">Total Calls</p>
+                    <h2 class="h4 mb-0"><?= $totalCallsCount ?></h2>
+                </div>
+                <i class="bi bi-telephone-fill stat-icon text-danger" aria-hidden="true"></i>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div class="card">
