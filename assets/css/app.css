@@ -12,6 +12,12 @@
     border-left: 4px solid var(--bs-primary);
 }
 
+
+.stat-icon {
+    font-size: 1.5rem;
+    line-height: 1;
+}
+
 .job-fair-result-card {
     border-left: 4px solid var(--bs-success);
 }
