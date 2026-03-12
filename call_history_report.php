@@ -56,6 +56,7 @@ $hasDateTo = preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateTo) === 1;
 
 $viewMode = ($_GET['view'] ?? '') === 'details' ? 'details' : 'summary';
 $selectedMetric = trim((string) ($_GET['metric'] ?? 'total_calls'));
+$isFullStretch = ($_GET['stretch'] ?? '') === '1';
 
 $metricConfig = [
     'total_calls' => [
@@ -233,9 +234,10 @@ $renderMetricCell = static function (int $value, string $url, string $extraText 
 };
 
 $isDetailsMode = $viewMode === 'details';
+$useFluidContainer = $isDetailsMode || $isFullStretch;
 render_header('Call History Report', [
     'show_navigation' => !$isDetailsMode,
-    'main_container_class' => $isDetailsMode ? 'container-fluid px-3' : 'container',
+    'main_container_class' => $useFluidContainer ? 'container-fluid px-3' : 'container',
 ]);
 ?>
 <?php if ($viewMode === 'details'): ?>
@@ -322,6 +324,23 @@ render_header('Call History Report', [
                 <div class="col-auto d-flex gap-2">
                     <button type="submit" class="btn btn-primary">Apply</button>
                     <a href="/call_history_report.php" class="btn btn-outline-secondary">Reset</a>
+                    <?php
+                    $stretchQueryParams = [];
+                    if ($selectedMember !== '') {
+                        $stretchQueryParams['crm_member'] = $selectedMember;
+                    }
+                    if ($hasDateFrom) {
+                        $stretchQueryParams['date_from'] = $dateFrom;
+                    }
+                    if ($hasDateTo) {
+                        $stretchQueryParams['date_to'] = $dateTo;
+                    }
+                    ?>
+                    <?php if ($isFullStretch): ?>
+                        <a href="<?= esc('/call_history_report.php?' . http_build_query($stretchQueryParams)) ?>" class="btn btn-outline-dark">Exit Full Screen</a>
+                    <?php else: ?>
+                        <a href="<?= esc('/call_history_report.php?' . http_build_query(array_merge($stretchQueryParams, ['stretch' => '1']))) ?>" class="btn btn-outline-dark">Full Screen</a>
+                    <?php endif; ?>
                 </div>
             </form>
         </div>
@@ -331,6 +350,7 @@ render_header('Call History Report', [
         <table class="table table-bordered table-striped align-middle">
             <thead>
                 <tr>
+                    <th rowspan="2">Sl No</th>
                     <th rowspan="2">User</th>
                     <th rowspan="2">Total Calls</th>
                     <th colspan="3" class="text-center">Employer Connect</th>
@@ -355,13 +375,16 @@ render_header('Call History Report', [
             <tbody>
                 <?php if ($summaryRows === []): ?>
                     <tr>
-                        <td colspan="13" class="text-center text-muted">No call history records found.</td>
+                        <td colspan="14" class="text-center text-muted">No call history records found.</td>
                     </tr>
                 <?php endif; ?>
-                <?php foreach ($summaryRows as $row): ?>
+                <?php foreach ($summaryRows as $rowIndex => $row): ?>
                     <?php $memberKey = (string) ($row['CRM_Member'] ?? 'Unassigned'); ?>
                     <?php
                     $memberQuery = ['view' => 'details', 'crm_member' => $memberKey];
+                    if ($isFullStretch) {
+                        $memberQuery['stretch'] = '1';
+                    }
                     $employerExtra = (int) ($row['employer_connect_employer_count'] ?? 0);
                     $candidateExtra = (int) ($row['candidate_connect_candidate_count'] ?? 0);
                     $assignedCandidateExtra = (int) ($row['assigned_candidate_count'] ?? 0);
@@ -369,6 +392,7 @@ render_header('Call History Report', [
                     $aggregatorExtra = (int) ($row['aggregator_connect_aggregator_count'] ?? 0);
                     ?>
                     <tr>
+                        <td><?= $rowIndex + 1 ?></td>
                         <td><?= esc($memberKey) ?></td>
                         <td><?= $renderMetricCell((int) $row['total_calls'], $buildReportUrl(array_merge($memberQuery, ['metric' => 'total_calls']))) ?></td>
                         <td><?= $renderMetricCell((int) $row['employer_connect_calls'], $buildReportUrl(array_merge($memberQuery, ['metric' => 'employer_connect']))) ?></td>
@@ -386,7 +410,7 @@ render_header('Call History Report', [
                 <?php endforeach; ?>
                 <?php if ($summaryRows !== []): ?>
                     <tr class="table-secondary fw-semibold">
-                        <td>Total</td>
+                        <td colspan="2">Total</td>
                         <td><?= $summaryTotals['total_calls'] ?></td>
                         <td><?= $summaryTotals['employer_connect_calls'] ?></td>
                         <td><?= $summaryTotals['employer_connect_employer_count'] ?></td>
