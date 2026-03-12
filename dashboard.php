@@ -17,6 +17,7 @@ $onHoldCount = (int) db()->query("SELECT COUNT(*) FROM job_fair_result WHERE LOW
 $shortlistOnHoldSelectedCount = (int) db()->query("SELECT COUNT(*) FROM job_fair_result WHERE LOWER(REPLACE(TRIM(Shortlist_Candidate_Status), ' ', '')) = 'selected'")->fetchColumn();
 $totalSelectedCount = $selectedCount + $shortlistOnHoldSelectedCount;
 $totalJoinedCount = (int) db()->query("SELECT COUNT(*) FROM job_fair_result WHERE LOWER(TRIM(Candidate_Joined_Status)) = 'yes'")->fetchColumn();
+$totalCallsCount = (int) db()->query('SELECT COUNT(*) FROM candidate_call_history')->fetchColumn();
 
 
 $pivotRows = db()->query('SELECT Job_Fair_No, Selection_Status, COUNT(*) AS total_count FROM job_fair_result GROUP BY Job_Fair_No, Selection_Status ORDER BY Job_Fair_No, Selection_Status')->fetchAll();
@@ -86,6 +87,7 @@ render_header('Dashboard');
     <div class="col-12 col-md-6 col-lg-3"><div class="card card-stat"><div class="card-body"><p class="text-muted mb-1">Shortlist/On Hold Selected</p><h2 class="h4"><?= $shortlistOnHoldSelectedCount ?></h2></div></div></div>
     <div class="col-12 col-md-6 col-lg-3"><div class="card card-stat"><div class="card-body"><p class="text-muted mb-1">Total Selected</p><h2 class="h4"><?= $totalSelectedCount ?></h2></div></div></div>
     <div class="col-12 col-md-6 col-lg-3"><div class="card card-stat"><div class="card-body"><p class="text-muted mb-1">Total Joined</p><h2 class="h4"><?= $totalJoinedCount ?></h2></div></div></div>
+    <div class="col-12 col-md-6 col-lg-3"><div class="card card-stat"><div class="card-body"><p class="text-muted mb-1">Total Calls</p><h2 class="h4"><?= $totalCallsCount ?></h2></div></div></div>
 </div>
 
 <div class="card">
@@ -93,6 +95,8 @@ render_header('Dashboard');
         <h2 class="h5">Quick navigation</h2>
         <div class="d-flex flex-wrap gap-2">
             <a class="btn btn-outline-primary btn-sm" href="/activities.php">Activities</a>
+            <a class="btn btn-outline-info btn-sm" href="/call_history_report.php">Call History Report</a>
+            <a class="btn btn-outline-dark btn-sm" href="/consolidated_report.php">Consolidated Report</a>
             <?php if ($user['role'] === 'administrator'): ?>
                 <a class="btn btn-outline-secondary btn-sm" href="/users.php">Users</a>
                 <a class="btn btn-outline-success btn-sm" href="/reports.php">Login Reports</a>
