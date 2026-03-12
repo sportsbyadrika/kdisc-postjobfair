@@ -14,6 +14,8 @@ if ($user['role'] === 'administrator') {
 $selectedCount = (int) db()->query("SELECT COUNT(*) FROM job_fair_result WHERE LOWER(REPLACE(TRIM(Selection_Status), ' ', '')) = 'selected'")->fetchColumn();
 $shortlistedCount = (int) db()->query("SELECT COUNT(*) FROM job_fair_result WHERE LOWER(REPLACE(TRIM(Selection_Status), ' ', '')) = 'shortlisted'")->fetchColumn();
 $onHoldCount = (int) db()->query("SELECT COUNT(*) FROM job_fair_result WHERE LOWER(REPLACE(TRIM(Selection_Status), ' ', '')) = 'onhold'")->fetchColumn();
+$shortlistOnHoldSelectedCount = (int) db()->query("SELECT COUNT(*) FROM job_fair_result WHERE LOWER(REPLACE(TRIM(Shortlist_Candidate_Status), ' ', '')) = 'selected'")->fetchColumn();
+$totalSelectedCount = $selectedCount + $shortlistOnHoldSelectedCount;
 $totalJoinedCount = (int) db()->query("SELECT COUNT(*) FROM job_fair_result WHERE LOWER(TRIM(Candidate_Joined_Status)) = 'yes'")->fetchColumn();
 
 
@@ -59,6 +61,8 @@ render_header('Dashboard');
     <div class="col-12 col-md-6 col-lg-3"><div class="card card-stat"><div class="card-body"><p class="text-muted mb-1">Selected</p><h2 class="h4"><?= $selectedCount ?></h2></div></div></div>
     <div class="col-12 col-md-6 col-lg-3"><div class="card card-stat"><div class="card-body"><p class="text-muted mb-1">Shortlisted</p><h2 class="h4"><?= $shortlistedCount ?></h2></div></div></div>
     <div class="col-12 col-md-6 col-lg-3"><div class="card card-stat"><div class="card-body"><p class="text-muted mb-1">On hold</p><h2 class="h4"><?= $onHoldCount ?></h2></div></div></div>
+    <div class="col-12 col-md-6 col-lg-3"><div class="card card-stat"><div class="card-body"><p class="text-muted mb-1">Shortlist/On Hold Selected</p><h2 class="h4"><?= $shortlistOnHoldSelectedCount ?></h2></div></div></div>
+    <div class="col-12 col-md-6 col-lg-3"><div class="card card-stat"><div class="card-body"><p class="text-muted mb-1">Total Selected</p><h2 class="h4"><?= $totalSelectedCount ?></h2></div></div></div>
     <div class="col-12 col-md-6 col-lg-3"><div class="card card-stat"><div class="card-body"><p class="text-muted mb-1">Total Joined</p><h2 class="h4"><?= $totalJoinedCount ?></h2></div></div></div>
 </div>
 
@@ -85,6 +89,7 @@ render_header('Dashboard');
             <table class="table table-bordered table-striped align-middle mb-0">
                 <thead>
                     <tr>
+                        <th>Sl No</th>
                         <th>Job Fair No</th>
                         <?php foreach ($pivotStatuses as $pivotStatus): ?>
                             <th><?= esc($pivotStatus) ?></th>
@@ -94,12 +99,14 @@ render_header('Dashboard');
                 </thead>
                 <tbody>
                 <?php if ($pivotData === []): ?>
-                    <tr><td colspan="<?= count($pivotStatuses) + 2 ?>" class="text-center text-muted">No job fair result data available.</td></tr>
+                    <tr><td colspan="<?= count($pivotStatuses) + 3 ?>" class="text-center text-muted">No job fair result data available.</td></tr>
                 <?php endif; ?>
                 <?php $columnTotals = array_fill_keys($pivotStatuses, 0); $grandTotal = 0; ?>
+                <?php $rowIndex = 1; ?>
                 <?php foreach ($pivotData as $jobFairNo => $statusCounts): ?>
                     <?php $rowTotal = 0; ?>
                     <tr>
+                        <td><?= $rowIndex ?></td>
                         <td><?= esc($jobFairNo) ?></td>
                         <?php foreach ($pivotStatuses as $pivotStatus): ?>
                             <?php $value = (int) ($statusCounts[$pivotStatus] ?? 0); $rowTotal += $value; $columnTotals[$pivotStatus] += $value; ?>
@@ -108,10 +115,11 @@ render_header('Dashboard');
                         <td><strong><?= $rowTotal ?></strong></td>
                     </tr>
                     <?php $grandTotal += $rowTotal; ?>
+                    <?php $rowIndex++; ?>
                 <?php endforeach; ?>
                 <?php if ($pivotData !== []): ?>
                     <tr>
-                        <td><strong>Total</strong></td>
+                        <td colspan="2"><strong>Total</strong></td>
                         <?php foreach ($pivotStatuses as $pivotStatus): ?>
                             <td><strong><?= $columnTotals[$pivotStatus] ?></strong></td>
                         <?php endforeach; ?>
