@@ -340,8 +340,8 @@ render_header('Consolidated report', ['main_container_class' => 'container-fluid
                     <th rowspan="2">Total Shortlisted/Onhold Candidate</th>
                     <th colspan="4" class="text-center">Shortlisted Conversion</th>
                     <th colspan="3" class="text-center">Offer Letter Generated</th>
-                    <th colspan="2" class="text-center">Link to Offer Letter</th>
-                    <th colspan="3" class="text-center">Link Verified</th>
+                    <th colspan="2" class="text-center">Offer Letter Softcopy</th>
+                    <th colspan="3" class="text-center">Softcopy Verified</th>
                     <th colspan="3" class="text-center">Offer Letter Receipt Confirmed</th>
                     <th colspan="3" class="text-center">Candidate Joined</th>
                 </tr>
@@ -349,12 +349,12 @@ render_header('Consolidated report', ['main_container_class' => 'container-fluid
                     <th>Selected</th>
                     <th>Shortlisted</th>
                     <th>Rejected</th>
-                    <th>Onhold</th>
+                    <th>Pending</th>
                     <th>Yes</th>
                     <th>No</th>
                     <th>Pending</th>
-                    <th>With Link</th>
-                    <th>Blank</th>
+                    <th>Received</th>
+                    <th>Not Received</th>
                     <th>Yes</th>
                     <th>No</th>
                     <th>Pending</th>
