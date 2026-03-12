@@ -107,8 +107,8 @@ function fetch_shortlisted_onhold_report(array $filters): array
             COUNT(*) AS total_shortlisted_onhold_candidate,
             SUM(CASE WHEN $shortlistStatusExpression = 'shortlisted' THEN 1 ELSE 0 END) AS shortlist_status_shortlisted,
             SUM(CASE WHEN $shortlistStatusExpression = 'selected' THEN 1 ELSE 0 END) AS shortlist_status_selected,
-            SUM(CASE WHEN $shortlistStatusExpression = 'rejected' THEN 1 ELSE 0 END) AS shortlist_status_rejected,
-            SUM(CASE WHEN $shortlistStatusExpression = 'onhold' THEN 1 ELSE 0 END) AS shortlist_status_onhold,
+            SUM(CASE WHEN $shortlistStatusExpression IN ('rejected', 'candidatenotinterested') THEN 1 ELSE 0 END) AS shortlist_status_rejected,
+            SUM(CASE WHEN $shortlistStatusExpression IN ('onhold', '') THEN 1 ELSE 0 END) AS shortlist_status_onhold,
             SUM(CASE WHEN $shortlistStatusExpression = 'selected' AND LOWER(TRIM(COALESCE(Offer_Letter_Generated, ''))) = 'yes' THEN 1 ELSE 0 END) AS offer_generated_yes,
             SUM(CASE WHEN $shortlistStatusExpression = 'selected' AND LOWER(TRIM(COALESCE(Offer_Letter_Generated, ''))) = 'no' THEN 1 ELSE 0 END) AS offer_generated_no,
             SUM(CASE WHEN $shortlistStatusExpression = 'selected' AND (LOWER(TRIM(COALESCE(Offer_Letter_Generated, ''))) = 'pending' OR TRIM(COALESCE(Offer_Letter_Generated, '')) = '') THEN 1 ELSE 0 END) AS offer_generated_pending,
@@ -340,21 +340,21 @@ render_header('Consolidated report', ['main_container_class' => 'container-fluid
                     <th rowspan="2">Total Shortlisted/Onhold Candidate</th>
                     <th colspan="4" class="text-center">Shortlisted Conversion</th>
                     <th colspan="3" class="text-center">Offer Letter Generated</th>
-                    <th colspan="2" class="text-center">Link to Offer Letter</th>
-                    <th colspan="3" class="text-center">Link Verified</th>
+                    <th colspan="2" class="text-center">Offer Letter Softcopy</th>
+                    <th colspan="3" class="text-center">Softcopy Verified</th>
                     <th colspan="3" class="text-center">Offer Letter Receipt Confirmed</th>
                     <th colspan="3" class="text-center">Candidate Joined</th>
                 </tr>
                 <tr>
-                    <th>Shortlisted</th>
                     <th>Selected</th>
+                    <th>Shortlisted</th>
                     <th>Rejected</th>
-                    <th>Onhold</th>
+                    <th>Pending</th>
                     <th>Yes</th>
                     <th>No</th>
                     <th>Pending</th>
-                    <th>With Link</th>
-                    <th>Blank</th>
+                    <th>Received</th>
+                    <th>Not Received</th>
                     <th>Yes</th>
                     <th>No</th>
                     <th>Pending</th>
@@ -374,8 +374,8 @@ render_header('Consolidated report', ['main_container_class' => 'container-fluid
                     <tr>
                         <td><?= esc($row['job_fair_no']) ?></td>
                         <td><?= (int) $row['total_shortlisted_onhold_candidate'] ?></td>
-                        <td><?= (int) $row['shortlist_status_shortlisted'] ?></td>
                         <td><?= (int) $row['shortlist_status_selected'] ?></td>
+                        <td><?= (int) $row['shortlist_status_shortlisted'] ?></td>
                         <td><?= (int) $row['shortlist_status_rejected'] ?></td>
                         <td><?= (int) $row['shortlist_status_onhold'] ?></td>
                         <td><?= (int) $row['offer_generated_yes'] ?></td>
@@ -398,8 +398,8 @@ render_header('Consolidated report', ['main_container_class' => 'container-fluid
                     <tr class="table-secondary fw-semibold">
                         <td>Total</td>
                         <td><?= $shortlistedTotals['total_shortlisted_onhold_candidate'] ?></td>
-                        <td><?= $shortlistedTotals['shortlist_status_shortlisted'] ?></td>
                         <td><?= $shortlistedTotals['shortlist_status_selected'] ?></td>
+                        <td><?= $shortlistedTotals['shortlist_status_shortlisted'] ?></td>
                         <td><?= $shortlistedTotals['shortlist_status_rejected'] ?></td>
                         <td><?= $shortlistedTotals['shortlist_status_onhold'] ?></td>
                         <td><?= $shortlistedTotals['offer_generated_yes'] ?></td>
