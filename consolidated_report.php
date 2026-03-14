@@ -161,7 +161,6 @@ $selectedTotals = calculate_consolidated_totals($selectedRows, [
     'total_selected_candidate',
     'offer_generated_yes',
     'offer_generated_no',
-    'offer_generated_pending',
     'offer_link_with_link',
     'offer_link_blank',
     'link_verified_yes',
@@ -178,13 +177,11 @@ $selectedTotals = calculate_consolidated_totals($selectedRows, [
 $shortlistedRows = fetch_shortlisted_onhold_report($filters);
 $shortlistedTotals = calculate_consolidated_totals($shortlistedRows, [
     'total_shortlisted_onhold_candidate',
-    'shortlist_status_shortlisted',
     'shortlist_status_selected',
     'shortlist_status_rejected',
     'shortlist_status_onhold',
     'offer_generated_yes',
     'offer_generated_no',
-    'offer_generated_pending',
     'offer_link_with_link',
     'offer_link_blank',
     'link_verified_yes',
@@ -259,7 +256,7 @@ render_header('Consolidated report', ['main_container_class' => 'container-fluid
                 <tr>
                     <th rowspan="2">Job Fair No</th>
                     <th rowspan="2">Total Selected Candidate</th>
-                    <th colspan="3" class="text-center">Offer Letter Generated</th>
+                    <th colspan="2" class="text-center">Offer Letter Generated</th>
                     <th colspan="2" class="text-center">Offer Letter Softcopy</th>
                     <th colspan="3" class="text-center">Softcopy Verified</th>
                     <th colspan="3" class="text-center">Offer Letter Receipt</th>
@@ -268,7 +265,6 @@ render_header('Consolidated report', ['main_container_class' => 'container-fluid
                 <tr>
                     <th>Yes</th>
                     <th>No</th>
-                    <th>Pending</th>
                     <th>Received</th>
                     <th>Not Received</th>
                     <th>Yes</th>
@@ -284,7 +280,7 @@ render_header('Consolidated report', ['main_container_class' => 'container-fluid
                 </thead>
                 <tbody>
                 <?php if ($selectedRows === []): ?>
-                    <tr><td colspan="16" class="text-center text-muted">No data available.</td></tr>
+                    <tr><td colspan="15" class="text-center text-muted">No data available.</td></tr>
                 <?php endif; ?>
                 <?php foreach ($selectedRows as $row): ?>
                     <tr>
@@ -292,7 +288,6 @@ render_header('Consolidated report', ['main_container_class' => 'container-fluid
                         <td><?= (int) $row['total_selected_candidate'] ?></td>
                         <td><?= (int) $row['offer_generated_yes'] ?></td>
                         <td><?= (int) $row['offer_generated_no'] ?></td>
-                        <td><?= (int) $row['offer_generated_pending'] ?></td>
                         <td><?= (int) $row['offer_link_with_link'] ?></td>
                         <td><?= (int) $row['offer_link_blank'] ?></td>
                         <td><?= (int) $row['link_verified_yes'] ?></td>
@@ -312,7 +307,6 @@ render_header('Consolidated report', ['main_container_class' => 'container-fluid
                         <td><?= $selectedTotals['total_selected_candidate'] ?></td>
                         <td><?= $selectedTotals['offer_generated_yes'] ?></td>
                         <td><?= $selectedTotals['offer_generated_no'] ?></td>
-                        <td><?= $selectedTotals['offer_generated_pending'] ?></td>
                         <td><?= $selectedTotals['offer_link_with_link'] ?></td>
                         <td><?= $selectedTotals['offer_link_blank'] ?></td>
                         <td><?= $selectedTotals['link_verified_yes'] ?></td>
@@ -341,8 +335,8 @@ render_header('Consolidated report', ['main_container_class' => 'container-fluid
                 <tr>
                     <th rowspan="2">Job Fair No</th>
                     <th rowspan="2">Total Shortlisted/Onhold Candidate</th>
-                    <th colspan="4" class="text-center">Shortlisted Conversion</th>
-                    <th colspan="3" class="text-center">Offer Letter Generated</th>
+                    <th colspan="3" class="text-center">Shortlisted Conversion</th>
+                    <th colspan="2" class="text-center">Offer Letter Generated</th>
                     <th colspan="2" class="text-center">Offer Letter Softcopy</th>
                     <th colspan="3" class="text-center">Softcopy Verified</th>
                     <th colspan="3" class="text-center">Offer Letter Receipt Confirmed</th>
@@ -350,12 +344,10 @@ render_header('Consolidated report', ['main_container_class' => 'container-fluid
                 </tr>
                 <tr>
                     <th>Selected</th>
-                    <th>Shortlisted</th>
                     <th>Rejected</th>
                     <th>Pending</th>
                     <th>Yes</th>
                     <th>No</th>
-                    <th>Pending</th>
                     <th>Received</th>
                     <th>Not Received</th>
                     <th>Yes</th>
@@ -371,19 +363,17 @@ render_header('Consolidated report', ['main_container_class' => 'container-fluid
                 </thead>
                 <tbody>
                 <?php if ($shortlistedRows === []): ?>
-                    <tr><td colspan="20" class="text-center text-muted">No data available.</td></tr>
+                    <tr><td colspan="18" class="text-center text-muted">No data available.</td></tr>
                 <?php endif; ?>
                 <?php foreach ($shortlistedRows as $row): ?>
                     <tr>
                         <td><?= esc($row['job_fair_no']) ?></td>
                         <td><?= (int) $row['total_shortlisted_onhold_candidate'] ?></td>
                         <td><?= (int) $row['shortlist_status_selected'] ?></td>
-                        <td><?= (int) $row['shortlist_status_shortlisted'] ?></td>
                         <td><?= (int) $row['shortlist_status_rejected'] ?></td>
                         <td><?= (int) $row['shortlist_status_onhold'] ?></td>
                         <td><?= (int) $row['offer_generated_yes'] ?></td>
                         <td><?= (int) $row['offer_generated_no'] ?></td>
-                        <td><?= (int) $row['offer_generated_pending'] ?></td>
                         <td><?= (int) $row['offer_link_with_link'] ?></td>
                         <td><?= (int) $row['offer_link_blank'] ?></td>
                         <td><?= (int) $row['link_verified_yes'] ?></td>
@@ -402,12 +392,10 @@ render_header('Consolidated report', ['main_container_class' => 'container-fluid
                         <td>Total</td>
                         <td><?= $shortlistedTotals['total_shortlisted_onhold_candidate'] ?></td>
                         <td><?= $shortlistedTotals['shortlist_status_selected'] ?></td>
-                        <td><?= $shortlistedTotals['shortlist_status_shortlisted'] ?></td>
                         <td><?= $shortlistedTotals['shortlist_status_rejected'] ?></td>
                         <td><?= $shortlistedTotals['shortlist_status_onhold'] ?></td>
                         <td><?= $shortlistedTotals['offer_generated_yes'] ?></td>
                         <td><?= $shortlistedTotals['offer_generated_no'] ?></td>
-                        <td><?= $shortlistedTotals['offer_generated_pending'] ?></td>
                         <td><?= $shortlistedTotals['offer_link_with_link'] ?></td>
                         <td><?= $shortlistedTotals['offer_link_blank'] ?></td>
                         <td><?= $shortlistedTotals['link_verified_yes'] ?></td>
