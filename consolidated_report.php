@@ -61,7 +61,7 @@ function fetch_selected_candidates_report(array $filters): array
             COALESCE(NULLIF(TRIM(Job_Fair_No), ''), 'Unknown') AS job_fair_no,
             COUNT(*) AS total_selected_candidate,
             SUM(CASE WHEN LOWER(TRIM(COALESCE(Offer_Letter_Generated, ''))) = 'yes' THEN 1 ELSE 0 END) AS offer_generated_yes,
-            SUM(CASE WHEN LOWER(TRIM(COALESCE(Offer_Letter_Generated, ''))) = 'no' THEN 1 ELSE 0 END) AS offer_generated_no,
+            SUM(CASE WHEN LOWER(TRIM(COALESCE(Offer_Letter_Generated, ''))) IN ('no', 'pending') OR TRIM(COALESCE(Offer_Letter_Generated, '')) = '' THEN 1 ELSE 0 END) AS offer_generated_no,
             SUM(CASE WHEN LOWER(TRIM(COALESCE(Offer_Letter_Generated, ''))) = 'pending' OR TRIM(COALESCE(Offer_Letter_Generated, '')) = '' THEN 1 ELSE 0 END) AS offer_generated_pending,
             SUM(CASE WHEN TRIM(COALESCE(Link_to_Offer_letter, '')) <> '' THEN 1 ELSE 0 END) AS offer_link_with_link,
             SUM(CASE WHEN TRIM(COALESCE(Link_to_Offer_letter, '')) = '' THEN 1 ELSE 0 END) AS offer_link_blank,
@@ -108,9 +108,9 @@ function fetch_shortlisted_onhold_report(array $filters): array
             SUM(CASE WHEN $shortlistStatusExpression = 'shortlisted' THEN 1 ELSE 0 END) AS shortlist_status_shortlisted,
             SUM(CASE WHEN $shortlistStatusExpression = 'selected' THEN 1 ELSE 0 END) AS shortlist_status_selected,
             SUM(CASE WHEN $shortlistStatusExpression IN ('rejected', 'candidatenotinterested') THEN 1 ELSE 0 END) AS shortlist_status_rejected,
-            SUM(CASE WHEN $shortlistStatusExpression IN ('onhold', '') THEN 1 ELSE 0 END) AS shortlist_status_onhold,
+            SUM(CASE WHEN $shortlistStatusExpression IN ('onhold', '', 'shortlisted') THEN 1 ELSE 0 END) AS shortlist_status_onhold,
             SUM(CASE WHEN $shortlistStatusExpression = 'selected' AND LOWER(TRIM(COALESCE(Offer_Letter_Generated, ''))) = 'yes' THEN 1 ELSE 0 END) AS offer_generated_yes,
-            SUM(CASE WHEN $shortlistStatusExpression = 'selected' AND LOWER(TRIM(COALESCE(Offer_Letter_Generated, ''))) = 'no' THEN 1 ELSE 0 END) AS offer_generated_no,
+            SUM(CASE WHEN $shortlistStatusExpression = 'selected' AND (LOWER(TRIM(COALESCE(Offer_Letter_Generated, ''))) IN ('no', 'pending') OR TRIM(COALESCE(Offer_Letter_Generated, '')) = '') THEN 1 ELSE 0 END) AS offer_generated_no,
             SUM(CASE WHEN $shortlistStatusExpression = 'selected' AND (LOWER(TRIM(COALESCE(Offer_Letter_Generated, ''))) = 'pending' OR TRIM(COALESCE(Offer_Letter_Generated, '')) = '') THEN 1 ELSE 0 END) AS offer_generated_pending,
             SUM(CASE WHEN $shortlistStatusExpression = 'selected' AND TRIM(COALESCE(Link_to_Offer_letter, '')) <> '' THEN 1 ELSE 0 END) AS offer_link_with_link,
             SUM(CASE WHEN $shortlistStatusExpression = 'selected' AND TRIM(COALESCE(Link_to_Offer_letter, '')) = '' THEN 1 ELSE 0 END) AS offer_link_blank,
@@ -150,7 +150,10 @@ function calculate_consolidated_totals(array $rows, array $keys): array
 $filters = build_consolidated_filters();
 $aggregatorOptions = fetch_consolidated_distinct_values('Aggregator');
 $jobFairOptions = fetch_consolidated_distinct_values('Job_Fair_No');
-$categoryOptions = fetch_consolidated_distinct_values('Category');
+$categoryOptions = array_values(array_filter(
+    fetch_consolidated_distinct_values('Category'),
+    static fn(string $value): bool => strtolower($value) !== 'unknown'
+));
 $selectionStatusOptions = fetch_consolidated_distinct_values('Selection_Status');
 
 $selectedRows = fetch_selected_candidates_report($filters);
