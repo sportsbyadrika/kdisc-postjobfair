@@ -1,150 +1,33 @@
 <?php
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/layout.php';
+require_once __DIR__ . '/includes/consolidated_report_helpers.php';
 require_auth();
 
-function fetch_consolidated_distinct_values(string $column): array
+function consolidated_metric_url(string $section, string $metric, ?string $jobFairRow, array $filters): string
 {
-    $sql = "SELECT DISTINCT COALESCE(NULLIF(TRIM($column), ''), 'Unknown') AS value
-        FROM job_fair_result
-        ORDER BY value ASC";
+    $params = array_filter([
+        'section' => $section,
+        'metric' => $metric,
+        'job_fair_row' => $jobFairRow,
+        'aggregator' => $filters['aggregator'],
+        'job_fair' => $filters['job_fair'],
+        'category' => $filters['category'],
+        'selection_status' => $filters['selection_status'],
+    ], static fn($value): bool => $value !== null && $value !== '');
 
-    return array_map(static fn(array $row): string => (string) $row['value'], db()->query($sql)->fetchAll());
+    return 'consolidated_report_candidates.php?' . http_build_query($params);
 }
 
-function build_consolidated_filters(): array
+function render_metric_link(int $value, string $section, string $metric, ?string $jobFairRow, array $filters): string
 {
-    return [
-        'aggregator' => trim((string) ($_GET['aggregator'] ?? '')),
-        'job_fair' => trim((string) ($_GET['job_fair'] ?? '')),
-        'category' => trim((string) ($_GET['category'] ?? '')),
-        'selection_status' => trim((string) ($_GET['selection_status'] ?? '')),
-    ];
-}
+    $url = consolidated_metric_url($section, $metric, $jobFairRow, $filters);
 
-function normalized_column(string $column): string
-{
-    return "LOWER(REPLACE(TRIM(COALESCE($column, '')), ' ', ''))";
-}
-
-function build_common_conditions(array $filters, array &$params): array
-{
-    $conditions = [];
-
-    if ($filters['aggregator'] !== '') {
-        $conditions[] = "COALESCE(NULLIF(TRIM(Aggregator), ''), 'Unknown') = ?";
-        $params[] = $filters['aggregator'];
-    }
-
-    if ($filters['job_fair'] !== '') {
-        $conditions[] = "COALESCE(NULLIF(TRIM(Job_Fair_No), ''), 'Unknown') = ?";
-        $params[] = $filters['job_fair'];
-    }
-
-    if ($filters['category'] !== '') {
-        $conditions[] = "COALESCE(NULLIF(TRIM(Category), ''), 'Unknown') = ?";
-        $params[] = $filters['category'];
-    }
-
-    return $conditions;
-}
-
-function fetch_selected_candidates_report(array $filters): array
-{
-    $params = [];
-    $conditions = build_common_conditions($filters, $params);
-    $conditions[] = normalized_column('Selection_Status') . " = 'selected'";
-
-    $whereClause = 'WHERE ' . implode(' AND ', $conditions);
-
-    $sql = "SELECT
-            COALESCE(NULLIF(TRIM(Job_Fair_No), ''), 'Unknown') AS job_fair_no,
-            COUNT(*) AS total_selected_candidate,
-            SUM(CASE WHEN LOWER(TRIM(COALESCE(Offer_Letter_Generated, ''))) = 'yes' THEN 1 ELSE 0 END) AS offer_generated_yes,
-            SUM(CASE WHEN LOWER(TRIM(COALESCE(Offer_Letter_Generated, ''))) IN ('no', 'pending') OR TRIM(COALESCE(Offer_Letter_Generated, '')) = '' THEN 1 ELSE 0 END) AS offer_generated_no,
-            SUM(CASE WHEN LOWER(TRIM(COALESCE(Offer_Letter_Generated, ''))) = 'pending' OR TRIM(COALESCE(Offer_Letter_Generated, '')) = '' THEN 1 ELSE 0 END) AS offer_generated_pending,
-            SUM(CASE WHEN TRIM(COALESCE(Link_to_Offer_letter, '')) <> '' THEN 1 ELSE 0 END) AS offer_link_with_link,
-            SUM(CASE WHEN TRIM(COALESCE(Link_to_Offer_letter, '')) = '' THEN 1 ELSE 0 END) AS offer_link_blank,
-            SUM(CASE WHEN LOWER(TRIM(COALESCE(Link_to_Offer_letter_verified, ''))) = 'yes' THEN 1 ELSE 0 END) AS link_verified_yes,
-            SUM(CASE WHEN LOWER(TRIM(COALESCE(Link_to_Offer_letter_verified, ''))) = 'no' THEN 1 ELSE 0 END) AS link_verified_no,
-            SUM(CASE WHEN LOWER(TRIM(COALESCE(Link_to_Offer_letter_verified, ''))) = 'pending' OR TRIM(COALESCE(Link_to_Offer_letter_verified, '')) = '' THEN 1 ELSE 0 END) AS link_verified_pending,
-            SUM(CASE WHEN LOWER(TRIM(COALESCE(Confirm_Offer_Letter_Receipt_by_Candidate, ''))) = 'yes' THEN 1 ELSE 0 END) AS receipt_confirmed_yes,
-            SUM(CASE WHEN LOWER(TRIM(COALESCE(Confirm_Offer_Letter_Receipt_by_Candidate, ''))) = 'no' THEN 1 ELSE 0 END) AS receipt_confirmed_no,
-            SUM(CASE WHEN LOWER(TRIM(COALESCE(Confirm_Offer_Letter_Receipt_by_Candidate, ''))) = 'pending' OR TRIM(COALESCE(Confirm_Offer_Letter_Receipt_by_Candidate, '')) = '' THEN 1 ELSE 0 END) AS receipt_confirmed_pending,
-            SUM(CASE WHEN LOWER(TRIM(COALESCE(Candidate_Joined_Status, ''))) = 'yes' THEN 1 ELSE 0 END) AS joined_yes,
-            SUM(CASE WHEN LOWER(TRIM(COALESCE(Candidate_Joined_Status, ''))) = 'no' THEN 1 ELSE 0 END) AS joined_no,
-            SUM(CASE WHEN LOWER(TRIM(COALESCE(Candidate_Joined_Status, ''))) = 'pending' OR TRIM(COALESCE(Candidate_Joined_Status, '')) = '' THEN 1 ELSE 0 END) AS joined_pending
-        FROM job_fair_result
-        $whereClause
-        GROUP BY job_fair_no
-        ORDER BY job_fair_no ASC";
-
-    $stmt = db()->prepare($sql);
-    $stmt->execute($params);
-
-    return $stmt->fetchAll();
-}
-
-function fetch_shortlisted_onhold_report(array $filters): array
-{
-    $params = [];
-    $conditions = build_common_conditions($filters, $params);
-
-    $selectionStatusExpression = normalized_column('Selection_Status');
-    $conditions[] = "$selectionStatusExpression IN ('shortlisted', 'onhold')";
-
-    if ($filters['selection_status'] !== '') {
-        $conditions[] = "$selectionStatusExpression = ?";
-        $params[] = strtolower(str_replace(' ', '', $filters['selection_status']));
-    }
-
-    $whereClause = 'WHERE ' . implode(' AND ', $conditions);
-
-    $shortlistStatusExpression = normalized_column('Shortlist_Candidate_Status');
-
-    $sql = "SELECT
-            COALESCE(NULLIF(TRIM(Job_Fair_No), ''), 'Unknown') AS job_fair_no,
-            COUNT(*) AS total_shortlisted_onhold_candidate,
-            SUM(CASE WHEN $shortlistStatusExpression = 'shortlisted' THEN 1 ELSE 0 END) AS shortlist_status_shortlisted,
-            SUM(CASE WHEN $shortlistStatusExpression = 'selected' THEN 1 ELSE 0 END) AS shortlist_status_selected,
-            SUM(CASE WHEN $shortlistStatusExpression IN ('rejected', 'candidatenotinterested') THEN 1 ELSE 0 END) AS shortlist_status_rejected,
-            SUM(CASE WHEN $shortlistStatusExpression IN ('onhold', '', 'shortlisted') THEN 1 ELSE 0 END) AS shortlist_status_onhold,
-            SUM(CASE WHEN $shortlistStatusExpression = 'selected' AND LOWER(TRIM(COALESCE(Offer_Letter_Generated, ''))) = 'yes' THEN 1 ELSE 0 END) AS offer_generated_yes,
-            SUM(CASE WHEN $shortlistStatusExpression = 'selected' AND (LOWER(TRIM(COALESCE(Offer_Letter_Generated, ''))) IN ('no', 'pending') OR TRIM(COALESCE(Offer_Letter_Generated, '')) = '') THEN 1 ELSE 0 END) AS offer_generated_no,
-            SUM(CASE WHEN $shortlistStatusExpression = 'selected' AND (LOWER(TRIM(COALESCE(Offer_Letter_Generated, ''))) = 'pending' OR TRIM(COALESCE(Offer_Letter_Generated, '')) = '') THEN 1 ELSE 0 END) AS offer_generated_pending,
-            SUM(CASE WHEN $shortlistStatusExpression = 'selected' AND TRIM(COALESCE(Link_to_Offer_letter, '')) <> '' THEN 1 ELSE 0 END) AS offer_link_with_link,
-            SUM(CASE WHEN $shortlistStatusExpression = 'selected' AND TRIM(COALESCE(Link_to_Offer_letter, '')) = '' THEN 1 ELSE 0 END) AS offer_link_blank,
-            SUM(CASE WHEN $shortlistStatusExpression = 'selected' AND LOWER(TRIM(COALESCE(Link_to_Offer_letter_verified, ''))) = 'yes' THEN 1 ELSE 0 END) AS link_verified_yes,
-            SUM(CASE WHEN $shortlistStatusExpression = 'selected' AND LOWER(TRIM(COALESCE(Link_to_Offer_letter_verified, ''))) = 'no' THEN 1 ELSE 0 END) AS link_verified_no,
-            SUM(CASE WHEN $shortlistStatusExpression = 'selected' AND (LOWER(TRIM(COALESCE(Link_to_Offer_letter_verified, ''))) = 'pending' OR TRIM(COALESCE(Link_to_Offer_letter_verified, '')) = '') THEN 1 ELSE 0 END) AS link_verified_pending,
-            SUM(CASE WHEN $shortlistStatusExpression = 'selected' AND LOWER(TRIM(COALESCE(Confirm_Offer_Letter_Receipt_by_Candidate, ''))) = 'yes' THEN 1 ELSE 0 END) AS receipt_confirmed_yes,
-            SUM(CASE WHEN $shortlistStatusExpression = 'selected' AND LOWER(TRIM(COALESCE(Confirm_Offer_Letter_Receipt_by_Candidate, ''))) = 'no' THEN 1 ELSE 0 END) AS receipt_confirmed_no,
-            SUM(CASE WHEN $shortlistStatusExpression = 'selected' AND (LOWER(TRIM(COALESCE(Confirm_Offer_Letter_Receipt_by_Candidate, ''))) = 'pending' OR TRIM(COALESCE(Confirm_Offer_Letter_Receipt_by_Candidate, '')) = '') THEN 1 ELSE 0 END) AS receipt_confirmed_pending,
-            SUM(CASE WHEN $shortlistStatusExpression = 'selected' AND LOWER(TRIM(COALESCE(Candidate_Joined_Status, ''))) = 'yes' THEN 1 ELSE 0 END) AS joined_yes,
-            SUM(CASE WHEN $shortlistStatusExpression = 'selected' AND LOWER(TRIM(COALESCE(Candidate_Joined_Status, ''))) = 'no' THEN 1 ELSE 0 END) AS joined_no,
-            SUM(CASE WHEN $shortlistStatusExpression = 'selected' AND (LOWER(TRIM(COALESCE(Candidate_Joined_Status, ''))) = 'pending' OR TRIM(COALESCE(Candidate_Joined_Status, '')) = '') THEN 1 ELSE 0 END) AS joined_pending
-        FROM job_fair_result
-        $whereClause
-        GROUP BY job_fair_no
-        ORDER BY job_fair_no ASC";
-
-    $stmt = db()->prepare($sql);
-    $stmt->execute($params);
-
-    return $stmt->fetchAll();
-}
-
-function calculate_consolidated_totals(array $rows, array $keys): array
-{
-    $totals = array_fill_keys($keys, 0);
-
-    foreach ($rows as $row) {
-        foreach ($keys as $key) {
-            $totals[$key] += (int) ($row[$key] ?? 0);
-        }
-    }
-
-    return $totals;
+    return sprintf(
+        '<a href="%s" target="_blank" rel="noopener noreferrer">%d</a>',
+        esc($url),
+        $value
+    );
 }
 
 $filters = build_consolidated_filters();
@@ -285,39 +168,39 @@ render_header('Consolidated report', ['main_container_class' => 'container-fluid
                 <?php foreach ($selectedRows as $row): ?>
                     <tr>
                         <td><?= esc($row['job_fair_no']) ?></td>
-                        <td><?= (int) $row['total_selected_candidate'] ?></td>
-                        <td><?= (int) $row['offer_generated_yes'] ?></td>
-                        <td><?= (int) $row['offer_generated_no'] ?></td>
-                        <td><?= (int) $row['offer_link_with_link'] ?></td>
-                        <td><?= (int) $row['offer_link_blank'] ?></td>
-                        <td><?= (int) $row['link_verified_yes'] ?></td>
-                        <td><?= (int) $row['link_verified_no'] ?></td>
-                        <td><?= (int) $row['link_verified_pending'] ?></td>
-                        <td><?= (int) $row['receipt_confirmed_yes'] ?></td>
-                        <td><?= (int) $row['receipt_confirmed_no'] ?></td>
-                        <td><?= (int) $row['receipt_confirmed_pending'] ?></td>
-                        <td><?= (int) $row['joined_yes'] ?></td>
-                        <td><?= (int) $row['joined_no'] ?></td>
-                        <td><?= (int) $row['joined_pending'] ?></td>
+                        <td><?= render_metric_link((int) $row['total_selected_candidate'], 'selected', 'total_selected_candidate', (string) $row['job_fair_no'], $filters) ?></td>
+                        <td><?= render_metric_link((int) $row['offer_generated_yes'], 'selected', 'offer_generated_yes', (string) $row['job_fair_no'], $filters) ?></td>
+                        <td><?= render_metric_link((int) $row['offer_generated_no'], 'selected', 'offer_generated_no', (string) $row['job_fair_no'], $filters) ?></td>
+                        <td><?= render_metric_link((int) $row['offer_link_with_link'], 'selected', 'offer_link_with_link', (string) $row['job_fair_no'], $filters) ?></td>
+                        <td><?= render_metric_link((int) $row['offer_link_blank'], 'selected', 'offer_link_blank', (string) $row['job_fair_no'], $filters) ?></td>
+                        <td><?= render_metric_link((int) $row['link_verified_yes'], 'selected', 'link_verified_yes', (string) $row['job_fair_no'], $filters) ?></td>
+                        <td><?= render_metric_link((int) $row['link_verified_no'], 'selected', 'link_verified_no', (string) $row['job_fair_no'], $filters) ?></td>
+                        <td><?= render_metric_link((int) $row['link_verified_pending'], 'selected', 'link_verified_pending', (string) $row['job_fair_no'], $filters) ?></td>
+                        <td><?= render_metric_link((int) $row['receipt_confirmed_yes'], 'selected', 'receipt_confirmed_yes', (string) $row['job_fair_no'], $filters) ?></td>
+                        <td><?= render_metric_link((int) $row['receipt_confirmed_no'], 'selected', 'receipt_confirmed_no', (string) $row['job_fair_no'], $filters) ?></td>
+                        <td><?= render_metric_link((int) $row['receipt_confirmed_pending'], 'selected', 'receipt_confirmed_pending', (string) $row['job_fair_no'], $filters) ?></td>
+                        <td><?= render_metric_link((int) $row['joined_yes'], 'selected', 'joined_yes', (string) $row['job_fair_no'], $filters) ?></td>
+                        <td><?= render_metric_link((int) $row['joined_no'], 'selected', 'joined_no', (string) $row['job_fair_no'], $filters) ?></td>
+                        <td><?= render_metric_link((int) $row['joined_pending'], 'selected', 'joined_pending', (string) $row['job_fair_no'], $filters) ?></td>
                     </tr>
                 <?php endforeach; ?>
                 <?php if ($selectedRows !== []): ?>
                     <tr class="table-secondary fw-semibold">
                         <td>Total</td>
-                        <td><?= $selectedTotals['total_selected_candidate'] ?></td>
-                        <td><?= $selectedTotals['offer_generated_yes'] ?></td>
-                        <td><?= $selectedTotals['offer_generated_no'] ?></td>
-                        <td><?= $selectedTotals['offer_link_with_link'] ?></td>
-                        <td><?= $selectedTotals['offer_link_blank'] ?></td>
-                        <td><?= $selectedTotals['link_verified_yes'] ?></td>
-                        <td><?= $selectedTotals['link_verified_no'] ?></td>
-                        <td><?= $selectedTotals['link_verified_pending'] ?></td>
-                        <td><?= $selectedTotals['receipt_confirmed_yes'] ?></td>
-                        <td><?= $selectedTotals['receipt_confirmed_no'] ?></td>
-                        <td><?= $selectedTotals['receipt_confirmed_pending'] ?></td>
-                        <td><?= $selectedTotals['joined_yes'] ?></td>
-                        <td><?= $selectedTotals['joined_no'] ?></td>
-                        <td><?= $selectedTotals['joined_pending'] ?></td>
+                        <td><?= render_metric_link($selectedTotals['total_selected_candidate'], 'selected', 'total_selected_candidate', null, $filters) ?></td>
+                        <td><?= render_metric_link($selectedTotals['offer_generated_yes'], 'selected', 'offer_generated_yes', null, $filters) ?></td>
+                        <td><?= render_metric_link($selectedTotals['offer_generated_no'], 'selected', 'offer_generated_no', null, $filters) ?></td>
+                        <td><?= render_metric_link($selectedTotals['offer_link_with_link'], 'selected', 'offer_link_with_link', null, $filters) ?></td>
+                        <td><?= render_metric_link($selectedTotals['offer_link_blank'], 'selected', 'offer_link_blank', null, $filters) ?></td>
+                        <td><?= render_metric_link($selectedTotals['link_verified_yes'], 'selected', 'link_verified_yes', null, $filters) ?></td>
+                        <td><?= render_metric_link($selectedTotals['link_verified_no'], 'selected', 'link_verified_no', null, $filters) ?></td>
+                        <td><?= render_metric_link($selectedTotals['link_verified_pending'], 'selected', 'link_verified_pending', null, $filters) ?></td>
+                        <td><?= render_metric_link($selectedTotals['receipt_confirmed_yes'], 'selected', 'receipt_confirmed_yes', null, $filters) ?></td>
+                        <td><?= render_metric_link($selectedTotals['receipt_confirmed_no'], 'selected', 'receipt_confirmed_no', null, $filters) ?></td>
+                        <td><?= render_metric_link($selectedTotals['receipt_confirmed_pending'], 'selected', 'receipt_confirmed_pending', null, $filters) ?></td>
+                        <td><?= render_metric_link($selectedTotals['joined_yes'], 'selected', 'joined_yes', null, $filters) ?></td>
+                        <td><?= render_metric_link($selectedTotals['joined_no'], 'selected', 'joined_no', null, $filters) ?></td>
+                        <td><?= render_metric_link($selectedTotals['joined_pending'], 'selected', 'joined_pending', null, $filters) ?></td>
                     </tr>
                 <?php endif; ?>
                 </tbody>
@@ -368,45 +251,45 @@ render_header('Consolidated report', ['main_container_class' => 'container-fluid
                 <?php foreach ($shortlistedRows as $row): ?>
                     <tr>
                         <td><?= esc($row['job_fair_no']) ?></td>
-                        <td><?= (int) $row['total_shortlisted_onhold_candidate'] ?></td>
-                        <td><?= (int) $row['shortlist_status_selected'] ?></td>
-                        <td><?= (int) $row['shortlist_status_rejected'] ?></td>
-                        <td><?= (int) $row['shortlist_status_onhold'] ?></td>
-                        <td><?= (int) $row['offer_generated_yes'] ?></td>
-                        <td><?= (int) $row['offer_generated_no'] ?></td>
-                        <td><?= (int) $row['offer_link_with_link'] ?></td>
-                        <td><?= (int) $row['offer_link_blank'] ?></td>
-                        <td><?= (int) $row['link_verified_yes'] ?></td>
-                        <td><?= (int) $row['link_verified_no'] ?></td>
-                        <td><?= (int) $row['link_verified_pending'] ?></td>
-                        <td><?= (int) $row['receipt_confirmed_yes'] ?></td>
-                        <td><?= (int) $row['receipt_confirmed_no'] ?></td>
-                        <td><?= (int) $row['receipt_confirmed_pending'] ?></td>
-                        <td><?= (int) $row['joined_yes'] ?></td>
-                        <td><?= (int) $row['joined_no'] ?></td>
-                        <td><?= (int) $row['joined_pending'] ?></td>
+                        <td><?= render_metric_link((int) $row['total_shortlisted_onhold_candidate'], 'shortlisted', 'total_shortlisted_onhold_candidate', (string) $row['job_fair_no'], $filters) ?></td>
+                        <td><?= render_metric_link((int) $row['shortlist_status_selected'], 'shortlisted', 'shortlist_status_selected', (string) $row['job_fair_no'], $filters) ?></td>
+                        <td><?= render_metric_link((int) $row['shortlist_status_rejected'], 'shortlisted', 'shortlist_status_rejected', (string) $row['job_fair_no'], $filters) ?></td>
+                        <td><?= render_metric_link((int) $row['shortlist_status_onhold'], 'shortlisted', 'shortlist_status_onhold', (string) $row['job_fair_no'], $filters) ?></td>
+                        <td><?= render_metric_link((int) $row['offer_generated_yes'], 'shortlisted', 'offer_generated_yes', (string) $row['job_fair_no'], $filters) ?></td>
+                        <td><?= render_metric_link((int) $row['offer_generated_no'], 'shortlisted', 'offer_generated_no', (string) $row['job_fair_no'], $filters) ?></td>
+                        <td><?= render_metric_link((int) $row['offer_link_with_link'], 'shortlisted', 'offer_link_with_link', (string) $row['job_fair_no'], $filters) ?></td>
+                        <td><?= render_metric_link((int) $row['offer_link_blank'], 'shortlisted', 'offer_link_blank', (string) $row['job_fair_no'], $filters) ?></td>
+                        <td><?= render_metric_link((int) $row['link_verified_yes'], 'shortlisted', 'link_verified_yes', (string) $row['job_fair_no'], $filters) ?></td>
+                        <td><?= render_metric_link((int) $row['link_verified_no'], 'shortlisted', 'link_verified_no', (string) $row['job_fair_no'], $filters) ?></td>
+                        <td><?= render_metric_link((int) $row['link_verified_pending'], 'shortlisted', 'link_verified_pending', (string) $row['job_fair_no'], $filters) ?></td>
+                        <td><?= render_metric_link((int) $row['receipt_confirmed_yes'], 'shortlisted', 'receipt_confirmed_yes', (string) $row['job_fair_no'], $filters) ?></td>
+                        <td><?= render_metric_link((int) $row['receipt_confirmed_no'], 'shortlisted', 'receipt_confirmed_no', (string) $row['job_fair_no'], $filters) ?></td>
+                        <td><?= render_metric_link((int) $row['receipt_confirmed_pending'], 'shortlisted', 'receipt_confirmed_pending', (string) $row['job_fair_no'], $filters) ?></td>
+                        <td><?= render_metric_link((int) $row['joined_yes'], 'shortlisted', 'joined_yes', (string) $row['job_fair_no'], $filters) ?></td>
+                        <td><?= render_metric_link((int) $row['joined_no'], 'shortlisted', 'joined_no', (string) $row['job_fair_no'], $filters) ?></td>
+                        <td><?= render_metric_link((int) $row['joined_pending'], 'shortlisted', 'joined_pending', (string) $row['job_fair_no'], $filters) ?></td>
                     </tr>
                 <?php endforeach; ?>
                 <?php if ($shortlistedRows !== []): ?>
                     <tr class="table-secondary fw-semibold">
                         <td>Total</td>
-                        <td><?= $shortlistedTotals['total_shortlisted_onhold_candidate'] ?></td>
-                        <td><?= $shortlistedTotals['shortlist_status_selected'] ?></td>
-                        <td><?= $shortlistedTotals['shortlist_status_rejected'] ?></td>
-                        <td><?= $shortlistedTotals['shortlist_status_onhold'] ?></td>
-                        <td><?= $shortlistedTotals['offer_generated_yes'] ?></td>
-                        <td><?= $shortlistedTotals['offer_generated_no'] ?></td>
-                        <td><?= $shortlistedTotals['offer_link_with_link'] ?></td>
-                        <td><?= $shortlistedTotals['offer_link_blank'] ?></td>
-                        <td><?= $shortlistedTotals['link_verified_yes'] ?></td>
-                        <td><?= $shortlistedTotals['link_verified_no'] ?></td>
-                        <td><?= $shortlistedTotals['link_verified_pending'] ?></td>
-                        <td><?= $shortlistedTotals['receipt_confirmed_yes'] ?></td>
-                        <td><?= $shortlistedTotals['receipt_confirmed_no'] ?></td>
-                        <td><?= $shortlistedTotals['receipt_confirmed_pending'] ?></td>
-                        <td><?= $shortlistedTotals['joined_yes'] ?></td>
-                        <td><?= $shortlistedTotals['joined_no'] ?></td>
-                        <td><?= $shortlistedTotals['joined_pending'] ?></td>
+                        <td><?= render_metric_link($shortlistedTotals['total_shortlisted_onhold_candidate'], 'shortlisted', 'total_shortlisted_onhold_candidate', null, $filters) ?></td>
+                        <td><?= render_metric_link($shortlistedTotals['shortlist_status_selected'], 'shortlisted', 'shortlist_status_selected', null, $filters) ?></td>
+                        <td><?= render_metric_link($shortlistedTotals['shortlist_status_rejected'], 'shortlisted', 'shortlist_status_rejected', null, $filters) ?></td>
+                        <td><?= render_metric_link($shortlistedTotals['shortlist_status_onhold'], 'shortlisted', 'shortlist_status_onhold', null, $filters) ?></td>
+                        <td><?= render_metric_link($shortlistedTotals['offer_generated_yes'], 'shortlisted', 'offer_generated_yes', null, $filters) ?></td>
+                        <td><?= render_metric_link($shortlistedTotals['offer_generated_no'], 'shortlisted', 'offer_generated_no', null, $filters) ?></td>
+                        <td><?= render_metric_link($shortlistedTotals['offer_link_with_link'], 'shortlisted', 'offer_link_with_link', null, $filters) ?></td>
+                        <td><?= render_metric_link($shortlistedTotals['offer_link_blank'], 'shortlisted', 'offer_link_blank', null, $filters) ?></td>
+                        <td><?= render_metric_link($shortlistedTotals['link_verified_yes'], 'shortlisted', 'link_verified_yes', null, $filters) ?></td>
+                        <td><?= render_metric_link($shortlistedTotals['link_verified_no'], 'shortlisted', 'link_verified_no', null, $filters) ?></td>
+                        <td><?= render_metric_link($shortlistedTotals['link_verified_pending'], 'shortlisted', 'link_verified_pending', null, $filters) ?></td>
+                        <td><?= render_metric_link($shortlistedTotals['receipt_confirmed_yes'], 'shortlisted', 'receipt_confirmed_yes', null, $filters) ?></td>
+                        <td><?= render_metric_link($shortlistedTotals['receipt_confirmed_no'], 'shortlisted', 'receipt_confirmed_no', null, $filters) ?></td>
+                        <td><?= render_metric_link($shortlistedTotals['receipt_confirmed_pending'], 'shortlisted', 'receipt_confirmed_pending', null, $filters) ?></td>
+                        <td><?= render_metric_link($shortlistedTotals['joined_yes'], 'shortlisted', 'joined_yes', null, $filters) ?></td>
+                        <td><?= render_metric_link($shortlistedTotals['joined_no'], 'shortlisted', 'joined_no', null, $filters) ?></td>
+                        <td><?= render_metric_link($shortlistedTotals['joined_pending'], 'shortlisted', 'joined_pending', null, $filters) ?></td>
                     </tr>
                 <?php endif; ?>
                 </tbody>
