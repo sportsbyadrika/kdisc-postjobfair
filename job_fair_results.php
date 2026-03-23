@@ -114,7 +114,8 @@ $jobFairResultColumnDefinitions = [
     'Shortlist_remarks' => "VARCHAR(1000) AFTER Shortlist_Candidate_Status",
 ];
 foreach ($jobFairResultColumnDefinitions as $columnName => $columnDefinition) {
-    $columnStmt = db()->query("SHOW COLUMNS FROM job_fair_result LIKE " . db()->quote($columnName));
+    $columnStmt = db()->prepare('SHOW COLUMNS FROM job_fair_result LIKE ?');
+    $columnStmt->execute([$columnName]);
     if ($columnStmt->fetchAll() === []) {
         db()->query("ALTER TABLE job_fair_result ADD COLUMN {$columnName} {$columnDefinition}");
     }
