@@ -60,6 +60,8 @@ CREATE TABLE IF NOT EXISTS job_fair_result (
   Job_Id VARCHAR(255),
   Job_Title_Name VARCHAR(255),
   Candidate_District VARCHAR(255),
+  Candidate_Localbody VARCHAR(255),
+  Candidate_Jobstation VARCHAR(255),
   Mobile_Number VARCHAR(255),
   EMail VARCHAR(255),
   SDPK VARCHAR(255),
@@ -78,13 +80,16 @@ CREATE TABLE IF NOT EXISTS job_fair_result (
   First_Call_Date DATETIME,
   First_Call_Done ENUM('Yes','No','Pending'),
   Offer_Letter_Generated ENUM('Yes','No','Pending'),
+  Offer_Letter_Generated_Remarks VARCHAR(1000),
   Offer_Letter_Generated_Date DATETIME,
   Link_to_Offer_letter VARCHAR(1000),
   Link_to_Offer_letter_verified ENUM('Yes','No'),
   Confirm_Offer_Letter_Receipt_by_Candidate ENUM('Yes','No','Pending'),
+  Confirm_letter_receipt_remarks VARCHAR(1000),
   confirmation_date DATETIME,
   response_from_employer VARCHAR(1000),
   Willing_to_Join ENUM('Yes','No'),
+  willing_to_join_remarks VARCHAR(1000),
   Offer_Letter_Join_Date DATETIME,
   Challenge_Type VARCHAR(255),
   Challenge_to_be_addressed VARCHAR(255),
@@ -106,7 +111,8 @@ CREATE TABLE IF NOT EXISTS job_fair_result (
   Shortlist_Process_Deadline_Date DATETIME,
   Shortlist_Current_Call_Status ENUM('Yes','No','Pending'),
   Shortlist_Current_Process_Status ENUM('Completed','Pending'),
-  Shortlist_Candidate_Status ENUM('Shortlisted','Selected','Rejected','Onhold')
+  Shortlist_Candidate_Status ENUM('Shortlisted','Selected','Rejected','Onhold'),
+  Shortlist_remarks VARCHAR(1000)
 );
 
 

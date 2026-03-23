@@ -105,6 +105,22 @@ if (!$hasCategoryColumn) {
     db()->query("ALTER TABLE job_fair_result ADD COLUMN Category VARCHAR(255) AFTER DSM_Member_2");
 }
 
+$jobFairResultColumnDefinitions = [
+    'Candidate_Localbody' => "VARCHAR(255) AFTER Candidate_District",
+    'Candidate_Jobstation' => "VARCHAR(255) AFTER Candidate_Localbody",
+    'Offer_Letter_Generated_Remarks' => "VARCHAR(1000) AFTER Offer_Letter_Generated",
+    'Confirm_letter_receipt_remarks' => "VARCHAR(1000) AFTER Confirm_Offer_Letter_Receipt_by_Candidate",
+    'willing_to_join_remarks' => "VARCHAR(1000) AFTER Willing_to_Join",
+    'Shortlist_remarks' => "VARCHAR(1000) AFTER Shortlist_Candidate_Status",
+];
+foreach ($jobFairResultColumnDefinitions as $columnName => $columnDefinition) {
+    $escapedColumnName = str_replace("'", "\\'", $columnName);
+    $columnStmt = db()->query("SHOW COLUMNS FROM job_fair_result LIKE '{$escapedColumnName}'");
+    if ($columnStmt->fetchAll() === []) {
+        db()->query("ALTER TABLE job_fair_result ADD COLUMN {$columnName} {$columnDefinition}");
+    }
+}
+
 db()->query(
     "CREATE TABLE IF NOT EXISTS candidate_manage_activity_log (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -213,6 +229,14 @@ $editableFieldConfig = [
         'column_position' => 1,
     ],
     [
+        'panel_label' => 'Shortlist/Onhold',
+        'field_name' => 'Shortlist_remarks',
+        'field_type' => 'varchar(1000)',
+        'group_label' => 'Shortlist Process',
+        'row_position' => 5,
+        'column_position' => 2,
+    ],
+    [
         'panel_label' => 'Selected',
         'field_name' => 'First_Call_Date',
         'field_type' => 'label',
@@ -238,11 +262,19 @@ $editableFieldConfig = [
     ],
     [
         'panel_label' => 'Selected',
+        'field_name' => 'Offer_Letter_Generated_Remarks',
+        'field_type' => 'varchar(1000)',
+        'group_label' => 'Offer Letter Generation',
+        'row_position' => 2,
+        'column_position' => 2,
+    ],
+    [
+        'panel_label' => 'Selected',
         'field_name' => 'Offer_Letter_Generated_Date',
         'field_type' => 'Date time textbox',
         'group_label' => 'Offer Letter Generation',
         'row_position' => 2,
-        'column_position' => 2,
+        'column_position' => 3,
     ],
     [
         'panel_label' => 'Selected',
@@ -270,11 +302,19 @@ $editableFieldConfig = [
     ],
     [
         'panel_label' => 'Selected',
-        'field_name' => 'confirmation_date',
-        'field_type' => 'Date time textbox',
+        'field_name' => 'Confirm_letter_receipt_remarks',
+        'field_type' => 'varchar(1000)',
         'group_label' => 'Offer Letter Link',
         'row_position' => 4,
         'column_position' => 3,
+    ],
+    [
+        'panel_label' => 'Selected',
+        'field_name' => 'confirmation_date',
+        'field_type' => 'Date time textbox',
+        'group_label' => 'Offer Letter Link',
+        'row_position' => 5,
+        'column_position' => 1,
     ],
     [
         'panel_label' => 'Selected',
@@ -282,7 +322,7 @@ $editableFieldConfig = [
         'field_type' => 'Date time textbox',
         'group_label' => 'Offer Letter Link',
         'row_position' => 5,
-        'column_position' => 1,
+        'column_position' => 2,
     ],
     [
         'panel_label' => 'Selected',
@@ -290,14 +330,22 @@ $editableFieldConfig = [
         'field_type' => "enum('Yes','No')",
         'group_label' => 'Offer Letter Link',
         'row_position' => 5,
-        'column_position' => 2,
+        'column_position' => 3,
+    ],
+    [
+        'panel_label' => 'Selected',
+        'field_name' => 'willing_to_join_remarks',
+        'field_type' => 'varchar(1000)',
+        'group_label' => 'Offer Letter Link',
+        'row_position' => 6,
+        'column_position' => 1,
     ],
     [
         'panel_label' => 'Selected',
         'field_name' => 'response_from_employer',
         'field_type' => 'varchar(1000)',
         'group_label' => 'Employer Response',
-        'row_position' => 6,
+        'row_position' => 7,
         'column_position' => 1,
     ],
     [
@@ -305,7 +353,7 @@ $editableFieldConfig = [
         'field_name' => 'Challenge_Type',
         'field_type' => 'varchar',
         'group_label' => 'Challenges to report',
-        'row_position' => 7,
+        'row_position' => 8,
         'column_position' => 1,
     ],
     [
@@ -313,7 +361,7 @@ $editableFieldConfig = [
         'field_name' => 'Challenge_to_be_addressed',
         'field_type' => 'varchar',
         'group_label' => 'Challenges to report',
-        'row_position' => 7,
+        'row_position' => 8,
         'column_position' => 2,
     ],
     [
@@ -321,7 +369,7 @@ $editableFieldConfig = [
         'field_name' => 'Candidate_Joined_Status',
         'field_type' => "enum('Yes','No','Pending','Not Applicable')",
         'group_label' => 'Candidate Joined details',
-        'row_position' => 8,
+        'row_position' => 9,
         'column_position' => 1,
     ],
     [
@@ -329,7 +377,7 @@ $editableFieldConfig = [
         'field_name' => 'Candidate_Joined_Date',
         'field_type' => 'Date time textbox',
         'group_label' => 'Candidate Joined details',
-        'row_position' => 8,
+        'row_position' => 9,
         'column_position' => 2,
     ],
     [
@@ -337,7 +385,7 @@ $editableFieldConfig = [
         'field_name' => 'Remarks_Candidate_Join',
         'field_type' => 'varchar',
         'group_label' => 'Candidate Joined details',
-        'row_position' => 9,
+        'row_position' => 10,
         'column_position' => 1,
     ],
 ];
