@@ -166,6 +166,32 @@ CREATE TABLE IF NOT EXISTS candidate_call_history (
     ON DELETE SET NULL
 );
 
+CREATE TABLE IF NOT EXISTS candidate_shortlist_rounds (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  candidate_id INT NOT NULL,
+  round_number INT NOT NULL,
+  round_scheduled_date DATE NOT NULL,
+  round_type ENUM('Interview','Test','Other') NOT NULL,
+  round_status ENUM('Pending at Employer','Pending at Candidate','Ongoing','Completed') NOT NULL,
+  round_remarks ENUM('Not Scheduled','Candidate not informed','Candidate not interested','Not applicable') DEFAULT NULL,
+  round_selection_status ENUM('Selected','Rejected','Candidate not Attended','Candidate Not Willing') NOT NULL,
+  created_by INT DEFAULT NULL,
+  updated_by INT DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_candidate_shortlist_rounds_candidate_id (candidate_id),
+  INDEX idx_candidate_shortlist_rounds_created_by (created_by),
+  INDEX idx_candidate_shortlist_rounds_updated_by (updated_by),
+  CONSTRAINT fk_candidate_shortlist_rounds_candidate
+    FOREIGN KEY (candidate_id) REFERENCES job_fair_result(id)
+    ON DELETE CASCADE,
+  CONSTRAINT fk_candidate_shortlist_rounds_created_by
+    FOREIGN KEY (created_by) REFERENCES users(id)
+    ON DELETE SET NULL,
+  CONSTRAINT fk_candidate_shortlist_rounds_updated_by
+    FOREIGN KEY (updated_by) REFERENCES users(id)
+    ON DELETE SET NULL
+);
 
 
 INSERT INTO candidate_call_purpose (purpose_name)

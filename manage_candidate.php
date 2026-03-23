@@ -72,9 +72,17 @@ const detailPanel = document.getElementById('candidateDetailPanel');
 const candidateDetailStatuses = document.getElementById('candidateDetailStatuses');
 const dynamicPanels = document.getElementById('dynamicPanels');
 const activeTabInput = document.getElementById('activeTabInput');
+const requestedTab = <?= json_encode(trim((string) ($_GET['tab'] ?? ''))) ?>;
 
 let fieldConfig = [];
 let callHistoryPurposeOptions = [];
+let shortlistRoundOptions = {
+    round_type: [],
+    round_status: [],
+    round_remarks: [],
+    round_selection_status: []
+};
+let shortlistRounds = [];
 let currentRow = null;
 
 function escapeHtml(value) { return String(value ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;'); }
@@ -92,6 +100,12 @@ function formatDisplayDatetime(value) {
     const date = new Date(String(value).replace(' ', 'T'));
     if (Number.isNaN(date.getTime())) return String(value);
     return new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Kolkata' }).format(date) + ' IST';
+}
+function formatDisplayDate(value) {
+    if (!value) return 'N/A';
+    const date = new Date(`${value}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return String(value);
+    return new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeZone: 'Asia/Kolkata' }).format(date);
 }
 function nowIstInput() {
     const now = new Date();
@@ -179,9 +193,139 @@ function renderActivityRows(rows) {
     body.innerHTML = rows.map((r, i) => `<tr><td>${i+1}</td><td>${escapeHtml(r.activity_section || 'N/A')}</td><td>${escapeHtml(r.activity_type || 'N/A')}</td><td>${escapeHtml(String(r.activity_details || 'N/A')).replaceAll('\n','<br>')}</td><td>${escapeHtml(r.created_by_name || 'N/A')}</td><td>${escapeHtml(formatDisplayDatetime(r.created_at || ''))}</td></tr>`).join('');
 }
 
+function shortlistRoundSelectOptions(values, selectedValue, includeBlank = true) {
+    const options = values.map((value) => `<option value="${escapeHtml(value)}" ${value === selectedValue ? 'selected' : ''}>${escapeHtml(value)}</option>`).join('');
+    return `${includeBlank ? '<option value="">Select</option>' : ''}${options}`;
+}
+
+function shortlistRoundForm(round = null) {
+    const isEdit = Boolean(round && round.id);
+    return `
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>${isEdit ? 'Edit Shortlist Round' : 'Add Shortlist Round'}</span>
+                ${isEdit ? '<button type="button" class="btn btn-outline-secondary btn-sm" onclick="resetShortlistRoundForm()">Cancel Edit</button>' : ''}
+            </div>
+            <div class="card-body">
+                <input type="hidden" name="shortlist_round_id" value="${escapeHtml(round?.id || '')}">
+                <div class="row g-3">
+                    <div class="col-12 col-md-4">
+                        <label class="form-label">Round Number <span class="text-danger">*</span></label>
+                        <input class="form-control" type="number" min="1" step="1" name="shortlist_round_number" value="${escapeHtml(round?.round_number || '')}" required>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label">Round Scheduled Date <span class="text-danger">*</span></label>
+                        <input class="form-control" type="date" name="shortlist_round_scheduled_date" value="${escapeHtml(round?.round_scheduled_date || '')}" required>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label">Round Type <span class="text-danger">*</span></label>
+                        <select class="form-select" name="shortlist_round_type" required>${shortlistRoundSelectOptions(shortlistRoundOptions.round_type || [], round?.round_type || '')}</select>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label">Round Status <span class="text-danger">*</span></label>
+                        <select class="form-select" name="shortlist_round_status" required>${shortlistRoundSelectOptions(shortlistRoundOptions.round_status || [], round?.round_status || '')}</select>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label">Round Remarks</label>
+                        <select class="form-select" name="shortlist_round_remarks">${shortlistRoundSelectOptions(shortlistRoundOptions.round_remarks || [], round?.round_remarks || '')}</select>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label">Round Selection Status <span class="text-danger">*</span></label>
+                        <select class="form-select" name="shortlist_round_selection_status" required>${shortlistRoundSelectOptions(shortlistRoundOptions.round_selection_status || [], round?.round_selection_status || '')}</select>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer d-flex justify-content-end">
+                <button type="submit" class="btn btn-primary btn-sm" name="update_section" value="shortlist_round_save">${isEdit ? 'Update Round' : 'Add Round'}</button>
+            </div>
+        </div>
+    `;
+}
+
+function renderShortlistRoundRows(rows) {
+    const body = document.getElementById('shortlistRoundBody');
+    if (!body) return;
+    if (!rows.length) {
+        body.innerHTML = '<tr><td colspan="8" class="text-center text-muted">No shortlist rounds added yet.</td></tr>';
+        return;
+    }
+    body.innerHTML = rows.map((round, index) => `
+        <tr>
+            <td>${index + 1}</td>
+            <td>${escapeHtml(round.round_number || 'N/A')}</td>
+            <td>${escapeHtml(formatDisplayDate(round.round_scheduled_date || ''))}</td>
+            <td>${escapeHtml(round.round_type || 'N/A')}</td>
+            <td>${escapeHtml(round.round_status || 'N/A')}</td>
+            <td>${escapeHtml(round.round_remarks || 'N/A')}</td>
+            <td>${escapeHtml(round.round_selection_status || 'N/A')}</td>
+            <td><button type="button" class="btn btn-outline-primary btn-sm" onclick="editShortlistRound(${Number(round.id)})">Edit</button></td>
+        </tr>
+    `).join('');
+}
+
+function renderShortlistRoundsSection() {
+    const container = document.getElementById('shortlistRoundsSection');
+    if (!container) return;
+    const editingId = Number(container.dataset.editingId || 0);
+    const editingRound = editingId > 0 ? shortlistRounds.find((round) => Number(round.id) === editingId) || null : null;
+    container.innerHTML = `
+        ${shortlistRoundForm(editingRound)}
+        <div class="card">
+            <div class="card-header">Shortlist Round History</div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered table-striped mb-0">
+                        <thead>
+                            <tr>
+                                <th>Sl no</th>
+                                <th>Round Number</th>
+                                <th>Scheduled Date</th>
+                                <th>Round Type</th>
+                                <th>Round Status</th>
+                                <th>Round Remarks</th>
+                                <th>Selection Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="shortlistRoundBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    `;
+    renderShortlistRoundRows(shortlistRounds);
+}
+
+function editShortlistRound(roundId) {
+    const container = document.getElementById('shortlistRoundsSection');
+    if (!container) return;
+    container.dataset.editingId = String(roundId || '');
+    renderShortlistRoundsSection();
+}
+
+function resetShortlistRoundForm() {
+    const container = document.getElementById('shortlistRoundsSection');
+    if (!container) return;
+    container.dataset.editingId = '';
+    renderShortlistRoundsSection();
+}
+
 function loadHistory() {
     fetch(`/job_fair_results.php?candidate_call_history=${candidateId}`).then(r => r.json()).then((rows) => renderCallHistoryRows(Array.isArray(rows) ? rows : [])).catch(() => renderCallHistoryRows([]));
     fetch(`/job_fair_results.php?candidate_manage_activity_log=${candidateId}`).then(r => r.json()).then((rows) => renderActivityRows(Array.isArray(rows) ? rows : [])).catch(() => renderActivityRows([]));
+}
+
+function loadShortlistRounds() {
+    fetch(`/job_fair_results.php?candidate_shortlist_rounds=${candidateId}`)
+        .then((r) => r.json())
+        .then((rows) => {
+            shortlistRounds = Array.isArray(rows) ? rows : [];
+            renderShortlistRoundsSection();
+        })
+        .catch(() => {
+            shortlistRounds = [];
+            renderShortlistRoundsSection();
+        });
 }
 
 function renderPanels(row) {
@@ -218,7 +362,7 @@ function renderPanels(row) {
                     <div class="col-md-4"><label class="form-label">Call Status</label><select class="form-select" name="call_history_call_status"><option value="">Select</option><option>Attended</option><option>Not attended</option><option>Invalid number</option></select></div>
                     <div class="col-12"><label class="form-label">Call Remarks</label><textarea class="form-control" name="call_history_call_remarks" rows="2"></textarea></div>
                 </div></div></div>
-                <div class="d-flex justify-content-end mb-3"><button type="submit" class="btn btn-primary btn-sm" name="update_section" value="call_history">Add Call History</button></div>
+                <div class="d-flex justify-content-end mb-3"><button type="submit" class="btn btn-primary btn-sm" name="update_section" value="call_history" formnovalidate>Add Call History</button></div>
                 <div class="card mb-3"><div class="card-header">Call History</div><div class="card-body"><div class="table-responsive"><table class="table table-bordered table-striped mb-0"><thead><tr><th>Sl no</th><th>Stage</th><th>Purpose</th><th>Date time</th><th>Status</th><th>Remarks</th></tr></thead><tbody id="callHistoryBody"></tbody></table></div></div></div>
                 <div class="card"><div class="card-header">Activity Log</div><div class="card-body"><div class="table-responsive"><table class="table table-bordered table-striped mb-0"><thead><tr><th>Sl no</th><th>Section</th><th>Type</th><th>Details</th><th>Updated By</th><th>Updated At</th></tr></thead><tbody id="activityLogBody"></tbody></table></div></div></div>
             </div>`;
@@ -231,11 +375,13 @@ function renderPanels(row) {
             return `<div class="card mb-3"><div class="card-header">${escapeHtml(g)}</div><div class="card-body"><div class="row g-3">${fields.map((f) => `<div class="col-12 col-md-4">${renderFieldControl(f,row)}</div>`).join('')}</div></div></div>`;
         }).join('');
         const updateSection = panel === 'Shortlist/Onhold' ? 'shortlist_onhold' : 'selected';
-        return `<div class="tab-pane fade ${i===0?'show active':''}" id="panel-${panelKey}"><div class="d-flex justify-content-end mb-3"><button type="submit" class="btn btn-primary btn-sm" name="update_section" value="${updateSection}">Update ${panel} Details</button></div>${groupHtml}</div>`;
+        const shortlistRoundsHtml = panel === 'Shortlist/Onhold' ? '<div id="shortlistRoundsSection" data-editing-id=""></div>' : '';
+        return `<div class="tab-pane fade ${i===0?'show active':''}" id="panel-${panelKey}"><div class="d-flex justify-content-end mb-3"><button type="submit" class="btn btn-primary btn-sm" name="update_section" value="${updateSection}" formnovalidate>Update ${panel} Details</button></div>${groupHtml}${shortlistRoundsHtml}</div>`;
     }).join('');
 
     dynamicPanels.innerHTML = `<ul class="nav nav-tabs mb-3">${tabs}</ul><div class="tab-content">${tabBodies}</div>`;
     loadHistory();
+    loadShortlistRounds();
 
     dynamicPanels.querySelectorAll('.nav-link').forEach((btn) => {
         btn.addEventListener('shown.bs.tab', () => {
@@ -244,9 +390,17 @@ function renderPanels(row) {
         });
     });
 
-    const firstTab = dynamicPanels.querySelector('.nav-link.active');
-    if (firstTab) {
-        activeTabInput.value = String(firstTab.dataset.bsTarget || '').replace('#panel-', '');
+    const requestedTabButton = requestedTab
+        ? dynamicPanels.querySelector(`[data-bs-target="#panel-${requestedTab}"]`)
+        : null;
+
+    if (requestedTabButton && typeof bootstrap !== 'undefined' && bootstrap?.Tab) {
+        bootstrap.Tab.getOrCreateInstance(requestedTabButton).show();
+    } else {
+        const firstTab = dynamicPanels.querySelector('.nav-link.active');
+        if (firstTab) {
+            activeTabInput.value = String(firstTab.dataset.bsTarget || '').replace('#panel-', '');
+        }
     }
 }
 
@@ -256,6 +410,7 @@ Promise.all([
 ]).then(([meta, row]) => {
     fieldConfig = Array.isArray(meta?.field_config) ? meta.field_config : [];
     callHistoryPurposeOptions = Array.isArray(meta?.call_purpose_options) ? meta.call_purpose_options : [];
+    shortlistRoundOptions = meta?.shortlist_round_options || shortlistRoundOptions;
     currentRow = row || null;
     if (!currentRow) {
         window.location.href = <?= json_encode($returnUrl) ?>;
@@ -270,6 +425,9 @@ document.getElementById('manageCandidateForm').addEventListener('submit', (event
     const submitter = event.submitter;
     if (submitter?.value === 'call_history') {
         activeTabInput.value = 'CallHistory';
+    }
+    if (submitter?.value === 'shortlist_round_save') {
+        activeTabInput.value = 'ShortlistOnhold';
     }
 });
 </script>
