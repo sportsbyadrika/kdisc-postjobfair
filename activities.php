@@ -4,6 +4,11 @@ require_once __DIR__ . '/includes/layout.php';
 require_auth();
 
 $user = current_user();
+if (is_district_user($user)) {
+    http_response_code(403);
+    echo 'Access denied';
+    exit;
+}
 $flash = null;
 
 if (is_post()) {

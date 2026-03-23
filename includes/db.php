@@ -118,6 +118,23 @@ class DatabaseResult
     }
 }
 
+
+function ensure_user_role_support(Database $database): void
+{
+    $roleColumn = $database->query("SHOW COLUMNS FROM users LIKE 'role'")->fetchAll();
+
+    if ($roleColumn === []) {
+        return;
+    }
+
+    $roleType = (string) ($roleColumn[0]['Type'] ?? '');
+    if (str_contains($roleType, "'district_user'")) {
+        return;
+    }
+
+    $database->query("ALTER TABLE users MODIFY COLUMN role ENUM('administrator', 'crm_member', 'district_user') NOT NULL");
+}
+
 function db(): Database
 {
     static $database = null;
@@ -130,6 +147,7 @@ function db(): Database
 
     try {
         $database = new Database($cfg);
+        ensure_user_role_support($database);
     } catch (mysqli_sql_exception $exception) {
         error_log(sprintf(
             'Database connection failed for user "%s" on host "%s:%s" (db: %s): %s',

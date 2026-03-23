@@ -5,9 +5,10 @@ require_auth();
 
 $user = current_user();
 $uid = $user['id'];
+$isDistrictUser = is_district_user($user);
 
 $totalUsers = 0;
-if ($user['role'] === 'administrator') {
+if (is_admin($user)) {
     $totalUsers = (int) db()->query('SELECT COUNT(*) FROM users WHERE active_status = 1')->fetchColumn();
 }
 
@@ -78,7 +79,7 @@ render_header('Dashboard');
 ?>
 <h1 class="h3 mb-4">Welcome, <?= esc($user['name']) ?></h1>
 <div class="row g-3 mb-3">
-    <?php if ($user['role'] === 'administrator'): ?>
+    <?php if (is_admin($user)): ?>
         <div class="col-12 col-md-6 col-lg-3">
             <div class="card card-stat h-100">
                 <div class="card-body d-flex align-items-start justify-content-between gap-2">
@@ -158,19 +159,22 @@ render_header('Dashboard');
             </div>
         </div>
     </div>
-    <div class="col-12 col-md-6 col-lg-3">
-        <div class="card card-stat h-100">
-            <div class="card-body d-flex align-items-start justify-content-between gap-2">
-                <div>
-                    <p class="text-muted mb-1">Total Calls</p>
-                    <h2 class="h4 mb-0"><?= $totalCallsCount ?></h2>
+    <?php if (!$isDistrictUser): ?>
+        <div class="col-12 col-md-6 col-lg-3">
+            <div class="card card-stat h-100">
+                <div class="card-body d-flex align-items-start justify-content-between gap-2">
+                    <div>
+                        <p class="text-muted mb-1">Total Calls</p>
+                        <h2 class="h4 mb-0"><?= $totalCallsCount ?></h2>
+                    </div>
+                    <i class="bi bi-telephone-fill stat-icon text-danger" aria-hidden="true"></i>
                 </div>
-                <i class="bi bi-telephone-fill stat-icon text-danger" aria-hidden="true"></i>
             </div>
         </div>
-    </div>
+    <?php endif; ?>
 </div>
 
+<?php if (!$isDistrictUser): ?>
 <div class="card">
     <div class="card-body">
         <h2 class="h5">Quick navigation</h2>
@@ -178,19 +182,22 @@ render_header('Dashboard');
             <a class="btn btn-outline-primary btn-sm" href="/activities.php">Activities</a>
             <a class="btn btn-outline-info btn-sm" href="/call_history_report.php">Call History Report</a>
             <a class="btn btn-outline-dark btn-sm" href="/consolidated_report.php">Consolidated Report</a>
-            <?php if ($user['role'] === 'administrator'): ?>
+            <?php if (is_admin($user)): ?>
                 <a class="btn btn-outline-secondary btn-sm" href="/users.php">Users</a>
                 <a class="btn btn-outline-success btn-sm" href="/reports.php">Login Reports</a>
             <?php endif; ?>
         </div>
     </div>
 </div>
+<?php endif; ?>
 
 <div class="card mt-3">
     <div class="card-body">
         <div class="d-flex justify-content-between align-items-center mb-2">
             <h2 class="h5 mb-0">Job Fair wise Status</h2>
-            <a class="btn btn-sm btn-outline-primary" href="/job_fair_results.php">Open Job fair result data</a>
+            <?php if (!$isDistrictUser): ?>
+                <a class="btn btn-sm btn-outline-primary" href="/job_fair_results.php">Open Job fair result data</a>
+            <?php endif; ?>
         </div>
         <div class="table-responsive">
             <table class="table table-bordered table-striped align-middle mb-0">
