@@ -12,6 +12,8 @@ $uploadColumns = [
     'Job_Id',
     'Job_Title_Name',
     'Candidate_District',
+    'Candidate_Localbody',
+    'Candidate_Jobstation',
     'Mobile_Number',
     'EMail',
     'SDPK',
@@ -28,13 +30,16 @@ $uploadColumns = [
     'First_Call_Date',
     'First_Call_Done',
     'Offer_Letter_Generated',
+    'Offer_Letter_Generated_Remarks',
     'Offer_Letter_Generated_Date',
     'Link_to_Offer_letter',
     'Link_to_Offer_letter_verified',
     'Confirm_Offer_Letter_Receipt_by_Candidate',
+    'Confirm_letter_receipt_remarks',
     'confirmation_date',
     'response_from_employer',
     'Willing_to_Join',
+    'willing_to_join_remarks',
     'Offer_Letter_Join_Date',
     'Challenge_Type',
     'Challenge_to_be_addressed',
@@ -57,6 +62,7 @@ $uploadColumns = [
     'Shortlist_Current_Call_Status',
     'Shortlist_Current_Process_Status',
     'Shortlist_Candidate_Status',
+    'Shortlist_remarks',
 ];
 
 $dateColumns = [
