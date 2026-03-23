@@ -30,33 +30,38 @@ function render_header(string $title, array $options = []): void
             </button>
             <div class="collapse navbar-collapse" id="mainNav">
                 <?php if ($user): ?>
+                    <?php $isDistrictUser = is_district_user($user); ?>
                     <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                         <li class="nav-item"><a class="nav-link" href="/dashboard.php">Dashboard</a></li>
-                        <li class="nav-item"><a class="nav-link" href="/activities.php">Activities</a></li>
-                        <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Job fair</a>
-                            <ul class="dropdown-menu">
-                                <li><a class="dropdown-item" href="/job_fair_results.php">Job fair result data</a></li>
-                                <li><a class="dropdown-item" href="/call_history_report.php">Call history report</a></li>
-                                <li><a class="dropdown-item" href="/job_fair_reports.php">Reports</a></li>
-                                <li><a class="dropdown-item" href="/consolidated_report.php">Consolidated Report</a></li>
-                                <li><a class="dropdown-item" href="/job_fair_exception_report.php">Exception report</a></li>
-                                <li><a class="dropdown-item" href="/job_fair_masters.php">Masters</a></li>
-                                <?php if ($user['role'] === 'administrator'): ?>
-                                    <li><a class="dropdown-item" href="/job_fair_result_upload.php">Upload job fair result CSV</a></li>
-                                    <li><a class="dropdown-item" href="/aggregator_offer_letter_upload.php">Upload aggregator selected data CSV</a></li>
-                                    <li><a class="dropdown-item" href="/job_fair_results_export.php">Download job fair result CSV</a></li>
-                                <?php endif; ?>
-                            </ul>
-                        </li>
-                        <?php if ($user['role'] === 'administrator'): ?>
+                        <?php if ($isDistrictUser): ?>
+                            <li class="nav-item"><a class="nav-link" href="/district_data.php">District Data</a></li>
+                        <?php else: ?>
+                            <li class="nav-item"><a class="nav-link" href="/activities.php">Activities</a></li>
                             <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">User Management</a>
+                                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Job fair</a>
                                 <ul class="dropdown-menu">
-                                    <li><a class="dropdown-item" href="/users.php">Users</a></li>
-                                    <li><a class="dropdown-item" href="/reports.php">Login Reports</a></li>
+                                    <li><a class="dropdown-item" href="/job_fair_results.php">Job fair result data</a></li>
+                                    <li><a class="dropdown-item" href="/call_history_report.php">Call history report</a></li>
+                                    <li><a class="dropdown-item" href="/job_fair_reports.php">Reports</a></li>
+                                    <li><a class="dropdown-item" href="/consolidated_report.php">Consolidated Report</a></li>
+                                    <li><a class="dropdown-item" href="/job_fair_exception_report.php">Exception report</a></li>
+                                    <li><a class="dropdown-item" href="/job_fair_masters.php">Masters</a></li>
+                                    <?php if (is_admin($user)): ?>
+                                        <li><a class="dropdown-item" href="/job_fair_result_upload.php">Upload job fair result CSV</a></li>
+                                        <li><a class="dropdown-item" href="/aggregator_offer_letter_upload.php">Upload aggregator selected data CSV</a></li>
+                                        <li><a class="dropdown-item" href="/job_fair_results_export.php">Download job fair result CSV</a></li>
+                                    <?php endif; ?>
                                 </ul>
                             </li>
+                            <?php if (is_admin($user)): ?>
+                                <li class="nav-item dropdown">
+                                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">User Management</a>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" href="/users.php">Users</a></li>
+                                        <li><a class="dropdown-item" href="/reports.php">Login Reports</a></li>
+                                    </ul>
+                                </li>
+                            <?php endif; ?>
                         <?php endif; ?>
                     </ul>
                     <div class="dropdown">

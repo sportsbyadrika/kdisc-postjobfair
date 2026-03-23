@@ -23,11 +23,22 @@ function require_auth(): void
 function require_admin(): void
 {
     require_auth();
-    if (current_user()['role'] !== 'administrator') {
+    if (!is_admin(current_user())) {
         http_response_code(403);
         echo 'Access denied';
         exit;
     }
+}
+
+
+function is_admin(array $user): bool
+{
+    return ($user['role'] ?? '') === 'administrator';
+}
+
+function is_district_user(array $user): bool
+{
+    return ($user['role'] ?? '') === 'district_user';
 }
 
 function is_post(): bool

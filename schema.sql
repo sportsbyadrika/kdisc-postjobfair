@@ -4,7 +4,7 @@ USE kdisc_postjobfair;
 CREATE TABLE IF NOT EXISTS users (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(120) NOT NULL,
-  role ENUM('administrator', 'crm_member') NOT NULL,
+  role ENUM('administrator', 'crm_member', 'district_user') NOT NULL,
   mobile_number VARCHAR(20) NOT NULL UNIQUE,
   email VARCHAR(150) DEFAULT NULL,
   address TEXT,
