@@ -141,6 +141,41 @@ db()->query(
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
 );
 
+
+db()->query(
+    "CREATE TABLE IF NOT EXISTS candidate_shortlist_rounds (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        candidate_id INT NOT NULL,
+        round_number INT NOT NULL,
+        round_scheduled_date DATE NOT NULL,
+        round_type ENUM('Interview','Test','Other') NOT NULL,
+        round_status ENUM('Pending at Employer','Pending at Candidate','Ongoing','Completed') NOT NULL,
+        round_remarks ENUM('Not Scheduled','Candidate not informed','Candidate not interested','Not applicable') DEFAULT NULL,
+        round_selection_status ENUM('Selected','Rejected','Candidate not Attended','Candidate Not Willing') NOT NULL,
+        created_by INT DEFAULT NULL,
+        updated_by INT DEFAULT NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_candidate_shortlist_rounds_candidate_id (candidate_id),
+        INDEX idx_candidate_shortlist_rounds_created_by (created_by),
+        INDEX idx_candidate_shortlist_rounds_updated_by (updated_by),
+        CONSTRAINT fk_candidate_shortlist_rounds_candidate
+            FOREIGN KEY (candidate_id) REFERENCES job_fair_result(id)
+            ON DELETE CASCADE,
+        CONSTRAINT fk_candidate_shortlist_rounds_created_by
+            FOREIGN KEY (created_by) REFERENCES users(id)
+            ON DELETE SET NULL,
+        CONSTRAINT fk_candidate_shortlist_rounds_updated_by
+            FOREIGN KEY (updated_by) REFERENCES users(id)
+            ON DELETE SET NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+);
+
+$shortlistRoundTypeOptions = ['Interview', 'Test', 'Other'];
+$shortlistRoundStatusOptions = ['Pending at Employer', 'Pending at Candidate', 'Ongoing', 'Completed'];
+$shortlistRoundRemarksOptions = ['Not Scheduled', 'Candidate not informed', 'Candidate not interested', 'Not applicable'];
+$shortlistRoundSelectionStatusOptions = ['Selected', 'Rejected', 'Candidate not Attended', 'Candidate Not Willing'];
+
 function log_candidate_manage_activity(int $candidateId, string $section, string $type, string $details, ?int $userId): void
 {
     $logStmt = db()->prepare(
@@ -153,6 +188,17 @@ function log_candidate_manage_activity(int $candidateId, string $section, string
         $details,
         $userId,
     ]);
+}
+
+function shortlist_round_post_value(string $key): ?string
+{
+    $value = trim((string) ($_POST[$key] ?? ''));
+    return $value === '' ? null : $value;
+}
+
+function shortlist_round_value_for_log(?string $value): string
+{
+    return $value === null || $value === '' ? 'N/A' : $value;
 }
 
 $callPurposeOptions = db()->query(
@@ -400,6 +446,108 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $updateSection = trim((string) ($_POST['update_section'] ?? ''));
 
     if ($candidateId > 0) {
+        if ($updateSection === 'shortlist_round_save') {
+            $roundId = (int) ($_POST['shortlist_round_id'] ?? 0);
+            $roundNumber = shortlist_round_post_value('shortlist_round_number');
+            $roundScheduledDate = shortlist_round_post_value('shortlist_round_scheduled_date');
+            $roundType = shortlist_round_post_value('shortlist_round_type');
+            $roundStatus = shortlist_round_post_value('shortlist_round_status');
+            $roundRemarks = shortlist_round_post_value('shortlist_round_remarks');
+            $roundSelectionStatus = shortlist_round_post_value('shortlist_round_selection_status');
+
+            $roundNumberValue = $roundNumber !== null && ctype_digit($roundNumber) && (int) $roundNumber > 0 ? (int) $roundNumber : null;
+            $isValidRound = $roundNumberValue !== null
+                && $roundScheduledDate !== null
+                && in_array($roundType, $shortlistRoundTypeOptions, true)
+                && in_array($roundStatus, $shortlistRoundStatusOptions, true)
+                && ($roundRemarks === null || in_array($roundRemarks, $shortlistRoundRemarksOptions, true))
+                && in_array($roundSelectionStatus, $shortlistRoundSelectionStatusOptions, true);
+
+            if ($isValidRound) {
+                if ($roundId > 0) {
+                    $existingRoundStmt = db()->prepare('SELECT * FROM candidate_shortlist_rounds WHERE id = ? AND candidate_id = ? LIMIT 1');
+                    $existingRoundStmt->execute([$roundId, $candidateId]);
+                    $existingRound = $existingRoundStmt->fetch();
+                    if ($existingRound) {
+                        $updateRoundStmt = db()->prepare(
+                            'UPDATE candidate_shortlist_rounds
+                             SET round_number = ?, round_scheduled_date = ?, round_type = ?, round_status = ?, round_remarks = ?, round_selection_status = ?, updated_by = ?
+                             WHERE id = ? AND candidate_id = ?'
+                        );
+                        $updateRoundStmt->execute([
+                            $roundNumberValue,
+                            $roundScheduledDate,
+                            $roundType,
+                            $roundStatus,
+                            $roundRemarks,
+                            $roundSelectionStatus,
+                            (int) ($user['id'] ?? 0),
+                            $roundId,
+                            $candidateId,
+                        ]);
+
+                        $roundChanges = [];
+                        $roundFields = [
+                            'round_number' => ['label' => 'Round number', 'new' => (string) $roundNumberValue],
+                            'round_scheduled_date' => ['label' => 'Scheduled date', 'new' => $roundScheduledDate],
+                            'round_type' => ['label' => 'Round type', 'new' => $roundType],
+                            'round_status' => ['label' => 'Round status', 'new' => $roundStatus],
+                            'round_remarks' => ['label' => 'Round remarks', 'new' => $roundRemarks],
+                            'round_selection_status' => ['label' => 'Selection status', 'new' => $roundSelectionStatus],
+                        ];
+                        foreach ($roundFields as $field => $fieldMeta) {
+                            $oldValue = isset($existingRound[$field]) ? (string) $existingRound[$field] : null;
+                            $newValue = $fieldMeta['new'];
+                            if ((string) ($oldValue ?? '') === (string) ($newValue ?? '')) {
+                                continue;
+                            }
+                            $roundChanges[] = $fieldMeta['label']
+                                . ': ' . shortlist_round_value_for_log($oldValue)
+                                . ' -> ' . shortlist_round_value_for_log($newValue);
+                        }
+
+                        if ($roundChanges !== []) {
+                            log_candidate_manage_activity(
+                                $candidateId,
+                                'shortlist_rounds',
+                                'update',
+                                'Round ID: ' . $roundId . "\n" . implode("\n", $roundChanges),
+                                (int) ($user['id'] ?? 0)
+                            );
+                        }
+                    }
+                } else {
+                    $insertRoundStmt = db()->prepare(
+                        'INSERT INTO candidate_shortlist_rounds (candidate_id, round_number, round_scheduled_date, round_type, round_status, round_remarks, round_selection_status, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                    );
+                    $insertRoundStmt->execute([
+                        $candidateId,
+                        $roundNumberValue,
+                        $roundScheduledDate,
+                        $roundType,
+                        $roundStatus,
+                        $roundRemarks,
+                        $roundSelectionStatus,
+                        (int) ($user['id'] ?? 0),
+                        (int) ($user['id'] ?? 0),
+                    ]);
+
+                    log_candidate_manage_activity(
+                        $candidateId,
+                        'shortlist_rounds',
+                        'save',
+                        'Round number: ' . $roundNumberValue
+                        . "\nScheduled date: " . $roundScheduledDate
+                        . "\nRound type: " . $roundType
+                        . "\nRound status: " . $roundStatus
+                        . "\nRound remarks: " . shortlist_round_value_for_log($roundRemarks)
+                        . "\nSelection status: " . $roundSelectionStatus,
+                        (int) ($user['id'] ?? 0)
+                    );
+                }
+            }
+        }
+
         $setClauses = [];
         $updateValues = [];
 
@@ -584,6 +732,21 @@ if (isset($_GET['candidate_call_history'])) {
     exit;
 }
 
+if (isset($_GET['candidate_shortlist_rounds'])) {
+    $candidateId = (int) ($_GET['candidate_shortlist_rounds'] ?? 0);
+    $roundStmt = db()->prepare(
+        'SELECT id, round_number, round_scheduled_date, round_type, round_status, round_remarks, round_selection_status, created_at, updated_at
+         FROM candidate_shortlist_rounds
+         WHERE candidate_id = ?
+         ORDER BY round_number ASC, round_scheduled_date ASC, id ASC'
+    );
+    $roundStmt->execute([$candidateId]);
+
+    header('Content-Type: application/json');
+    echo json_encode($roundStmt->fetchAll(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    exit;
+}
+
 if (isset($_GET['candidate_manage_activity_log'])) {
     $candidateId = (int) ($_GET['candidate_manage_activity_log'] ?? 0);
     $activityStmt = db()->prepare(
@@ -611,6 +774,12 @@ if (isset($_GET['manage_candidate_meta'])) {
     echo json_encode([
         'field_config' => $editableFieldConfig,
         'call_purpose_options' => $callPurposeOptions,
+        'shortlist_round_options' => [
+            'round_type' => $shortlistRoundTypeOptions,
+            'round_status' => $shortlistRoundStatusOptions,
+            'round_remarks' => $shortlistRoundRemarksOptions,
+            'round_selection_status' => $shortlistRoundSelectionStatusOptions,
+        ],
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit;
 }
