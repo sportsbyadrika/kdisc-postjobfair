@@ -83,6 +83,7 @@ function build_consolidated_filters(): array
 {
     return [
         'aggregator' => trim((string) ($_GET['aggregator'] ?? '')),
+        'candidate_district' => trim((string) ($_GET['candidate_district'] ?? '')),
         'job_fair' => trim((string) ($_GET['job_fair'] ?? '')),
         'category' => trim((string) ($_GET['category'] ?? '')),
         'selection_status' => trim((string) ($_GET['selection_status'] ?? '')),
@@ -98,9 +99,14 @@ function build_common_conditions(array $filters, array &$params): array
 {
     $conditions = [];
 
-    if ($filters['aggregator'] !== '') {
+    if (($filters['aggregator'] ?? '') !== '') {
         $conditions[] = "COALESCE(NULLIF(TRIM(Aggregator), ''), 'Unknown') = ?";
         $params[] = $filters['aggregator'];
+    }
+
+    if (($filters['candidate_district'] ?? '') !== '') {
+        $conditions[] = "COALESCE(NULLIF(TRIM(Candidate_District), ''), 'Unknown') = ?";
+        $params[] = $filters['candidate_district'];
     }
 
     if ($filters['job_fair'] !== '') {

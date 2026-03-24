@@ -34,7 +34,13 @@ function render_header(string $title, array $options = []): void
                     <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                         <li class="nav-item"><a class="nav-link" href="/dashboard.php">Dashboard</a></li>
                         <?php if ($isDistrictUser): ?>
-                            <li class="nav-item"><a class="nav-link" href="/district_data.php">District Data</a></li>
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">District Data</a>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" href="/district_data.php">District Data</a></li>
+                                    <li><a class="dropdown-item" href="/district_consolidated_report.php">District Consolidated Reports</a></li>
+                                </ul>
+                            </li>
                         <?php else: ?>
                             <li class="nav-item"><a class="nav-link" href="/activities.php">Activities</a></li>
                             <li class="nav-item dropdown">
