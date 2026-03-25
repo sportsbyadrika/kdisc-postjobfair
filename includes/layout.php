@@ -39,6 +39,7 @@ function render_header(string $title, array $options = []): void
                                 <ul class="dropdown-menu">
                                     <li><a class="dropdown-item" href="/district_data.php">District Data</a></li>
                                     <li><a class="dropdown-item" href="/district_consolidated_report.php">District Consolidated Reports</a></li>
+                                    <li><a class="dropdown-item" href="/job_station_consolidated_report.php">Job Station Consolidated Report</a></li>
                                     <li><a class="dropdown-item" href="/district_candidate_data.php">Candidate Data</a></li>
                                 </ul>
                             </li>
