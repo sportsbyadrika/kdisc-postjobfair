@@ -15,6 +15,7 @@ $dwmsIdFilter = trim($_GET['dwms_id'] ?? '');
 $candidateNameFilter = trim($_GET['candidate_name'] ?? '');
 $candidateLocalbodyFilter = trim($_GET['candidate_localbody'] ?? '');
 $candidateJobstationFilter = trim($_GET['candidate_jobstation'] ?? '');
+$offerLetterGeneratedFilter = trim($_GET['offer_letter_generated'] ?? '');
 $confirmOfferLetterReceiptByCandidateFilter = trim($_GET['confirm_offer_letter_receipt_by_candidate'] ?? '');
 $candidateJoinedStatusFilter = trim($_GET['candidate_joined_status'] ?? '');
 $currentQueryString = $_SERVER['QUERY_STRING'] ?? '';
@@ -23,6 +24,7 @@ $perPage = 25;
 
 $candidateDistricts = db()->query("SELECT DISTINCT Candidate_District FROM job_fair_result WHERE Candidate_District IS NOT NULL AND Candidate_District <> '' ORDER BY Candidate_District")->fetchAll();
 $jobFairNos = db()->query("SELECT DISTINCT Job_Fair_No FROM job_fair_result WHERE Job_Fair_No IS NOT NULL AND Job_Fair_No <> '' ORDER BY Job_Fair_No")->fetchAll();
+$offerLetterGeneratedStatuses = db()->query("SELECT DISTINCT Offer_Letter_Generated FROM job_fair_result WHERE Offer_Letter_Generated IS NOT NULL AND Offer_Letter_Generated <> '' ORDER BY Offer_Letter_Generated")->fetchAll();
 $confirmOfferLetterReceiptByCandidateStatuses = db()->query("SELECT DISTINCT Confirm_Offer_Letter_Receipt_by_Candidate FROM job_fair_result WHERE Confirm_Offer_Letter_Receipt_by_Candidate IS NOT NULL AND Confirm_Offer_Letter_Receipt_by_Candidate <> '' ORDER BY Confirm_Offer_Letter_Receipt_by_Candidate")->fetchAll();
 $candidateJoinedStatuses = db()->query("SELECT DISTINCT Candidate_Joined_Status FROM job_fair_result WHERE Candidate_Joined_Status IS NOT NULL AND Candidate_Joined_Status <> '' ORDER BY Candidate_Joined_Status")->fetchAll();
 
@@ -52,6 +54,10 @@ if ($candidateLocalbodyFilter !== '') {
 if ($candidateJobstationFilter !== '') {
     $whereSql .= ' AND Candidate_Jobstation LIKE ?';
     $params[] = '%' . $candidateJobstationFilter . '%';
+}
+if ($offerLetterGeneratedFilter !== '') {
+    $whereSql .= ' AND Offer_Letter_Generated = ?';
+    $params[] = $offerLetterGeneratedFilter;
 }
 if ($confirmOfferLetterReceiptByCandidateFilter !== '') {
     $whereSql .= ' AND Confirm_Offer_Letter_Receipt_by_Candidate = ?';
@@ -136,6 +142,15 @@ unset($baseParams['page']);
             <div class="col-12 col-md-4 col-lg-3">
                 <label class="form-label">Candidate Job station</label>
                 <input class="form-control" name="candidate_jobstation" type="text" value="<?= esc($candidateJobstationFilter) ?>" placeholder="Enter candidate job station">
+            </div>
+            <div class="col-12 col-md-4 col-lg-3">
+                <label class="form-label">Offer Letter Generated</label>
+                <select class="form-select" name="offer_letter_generated">
+                    <option value="">All</option>
+                    <?php foreach ($offerLetterGeneratedStatuses as $status): ?>
+                        <option value="<?= esc($status['Offer_Letter_Generated']) ?>" <?= $offerLetterGeneratedFilter === $status['Offer_Letter_Generated'] ? 'selected' : '' ?>><?= esc($status['Offer_Letter_Generated']) ?></option>
+                    <?php endforeach; ?>
+                </select>
             </div>
             <div class="col-12 col-md-4 col-lg-3">
                 <label class="form-label">Confirm offer letter receipt by candidate</label>
