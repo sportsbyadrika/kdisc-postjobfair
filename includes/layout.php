@@ -53,6 +53,7 @@ function render_header(string $title, array $options = []): void
                                     <li><a class="dropdown-item" href="/job_fair_reports.php">Reports</a></li>
                                     <li><a class="dropdown-item" href="/consolidated_report.php">Consolidated Report</a></li>
                                     <li><a class="dropdown-item" href="/job_fair_exception_report.php">Exception report</a></li>
+                                    <li><a class="dropdown-item" href="/job_station_consolidated_report.php">Job Station Consolidated Report</a></li>
                                     <li><a class="dropdown-item" href="/job_fair_masters.php">Masters</a></li>
                                     <?php if (is_admin($user)): ?>
                                         <li><a class="dropdown-item" href="/job_fair_result_upload.php">Upload job fair result CSV</a></li>
@@ -67,6 +68,7 @@ function render_header(string $title, array $options = []): void
                                     <ul class="dropdown-menu">
                                         <li><a class="dropdown-item" href="/users.php">Users</a></li>
                                         <li><a class="dropdown-item" href="/reports.php">Login Reports</a></li>
+                                        <li><a class="dropdown-item" href="/job_station_consolidated_report.php">Job Station Consolidated Report</a></li>
                                     </ul>
                                 </li>
                             <?php endif; ?>
