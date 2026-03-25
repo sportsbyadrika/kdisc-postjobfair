@@ -444,9 +444,24 @@ foreach ($editableFieldConfig as $config) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $candidateId = (int) ($_POST['candidate_id'] ?? 0);
     $updateSection = trim((string) ($_POST['update_section'] ?? ''));
+    $sourceMode = trim((string) ($_POST['source_mode'] ?? ''));
+    $isDistrictCandidateDataMode = $sourceMode === 'district_candidate_data';
+    $districtCandidateEditableFields = [
+        'Confirm_Offer_Letter_Receipt_by_Candidate',
+        'Confirm_letter_receipt_remarks',
+        'confirmation_date',
+        'Offer_Letter_Join_Date',
+        'Willing_to_Join',
+        'willing_to_join_remarks',
+        'Challenge_Type',
+        'Challenge_to_be_addressed',
+        'Candidate_Joined_Status',
+        'Candidate_Joined_Date',
+        'Remarks_Candidate_Join',
+    ];
 
     if ($candidateId > 0) {
-        if ($updateSection === 'shortlist_round_save') {
+        if ($updateSection === 'shortlist_round_save' && !$isDistrictCandidateDataMode) {
             $roundId = (int) ($_POST['shortlist_round_id'] ?? 0);
             $roundNumber = shortlist_round_post_value('shortlist_round_number');
             $roundScheduledDate = shortlist_round_post_value('shortlist_round_scheduled_date');
@@ -555,6 +570,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (($fieldConfig['field_type'] ?? '') === 'label') {
                 continue;
             }
+            if ($isDistrictCandidateDataMode && !in_array($fieldName, $districtCandidateEditableFields, true)) {
+                continue;
+            }
 
             $panelLabel = (string) ($fieldConfig['panel_label'] ?? '');
             if ($updateSection === 'shortlist_onhold' && $panelLabel !== 'Shortlist/Onhold') {
@@ -588,6 +606,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (($fieldConfig['field_type'] ?? '') === 'label') {
                     continue;
                 }
+                if ($isDistrictCandidateDataMode && !in_array($fieldName, $districtCandidateEditableFields, true)) {
+                    continue;
+                }
                 $panelLabel = (string) ($fieldConfig['panel_label'] ?? '');
                 if ($updateSection === 'shortlist_onhold' && $panelLabel !== 'Shortlist/Onhold') {
                     continue;
@@ -617,7 +638,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        if ($updateSection === 'call_history' || $updateSection === '') {
+        if ($updateSection === 'call_history' || ($updateSection === '' && !$isDistrictCandidateDataMode)) {
             $callHistoryStage = trim((string) ($_POST['call_history_stage'] ?? ''));
             $rowStmt = db()->prepare('SELECT Candidate_Name, Mobile_number, Employer_SPOC_Name, Employer_SPOC_Mobile, Aggregator_SPOC_Name, Aggregator_Spoc_mobile FROM job_fair_result WHERE id = ? LIMIT 1');
             $rowStmt->execute([$candidateId]);
