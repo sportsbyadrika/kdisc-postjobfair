@@ -79,6 +79,7 @@ function render_header(string $title, array $options = []): void
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li><span class="dropdown-item-text small text-muted"><?= esc($user['email']) ?></span></li>
                             <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="/change_password.php">Change Password</a></li>
                             <li><a class="dropdown-item" href="/logout.php">Logout</a></li>
                         </ul>
                     </div>
