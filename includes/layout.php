@@ -68,7 +68,6 @@ function render_header(string $title, array $options = []): void
                                     <ul class="dropdown-menu">
                                         <li><a class="dropdown-item" href="/users.php">Users</a></li>
                                         <li><a class="dropdown-item" href="/reports.php">Login Reports</a></li>
-                                        <li><a class="dropdown-item" href="/job_station_consolidated_report.php">Job Station Consolidated Report</a></li>
                                     </ul>
                                 </li>
                             <?php endif; ?>
