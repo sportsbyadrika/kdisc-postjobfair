@@ -141,6 +141,9 @@ function renderFieldControl(config, row) {
         const options = enumValues(config.field_type).map((opt) => `<option value="${escapeHtml(opt)}" ${opt === value ? 'selected' : ''}>${escapeHtml(opt)}</option>`).join('');
         return `<label class="form-label">${formatLabel(config.field_name)}</label><select class="form-select" name="${config.field_name}"><option value="">Select</option>${options}</select>`;
     }
+    if (String(config.field_type).toLowerCase().includes('date textbox')) {
+        return `<label class="form-label">${formatLabel(config.field_name)}</label><input class="form-control" type="date" name="${config.field_name}" value="${escapeHtml(value || '')}">`;
+    }
     if (String(config.field_type).toLowerCase().includes('date time')) {
         return `<label class="form-label">${formatLabel(config.field_name)}</label><input class="form-control" type="datetime-local" name="${config.field_name}" value="${toInputDatetime(value)}">`;
     }
@@ -388,7 +391,9 @@ function renderPanels(row) {
                 'Challenge_to_be_addressed',
                 'Candidate_Joined_Status',
                 'Candidate_Joined_Date',
-                'Remarks_Candidate_Join'
+                'Candidate_Joining_Future_Date',
+                'Remarks_Candidate_Join',
+                'Candidate_Join_Remarks_Type'
             ]);
             panelFields = panelFields.map((field) => {
                 if (districtEditableFieldNames.has(field.field_name)) {
