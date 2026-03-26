@@ -112,6 +112,8 @@ $jobFairResultColumnDefinitions = [
     'Confirm_letter_receipt_remarks' => "VARCHAR(1000) AFTER Confirm_Offer_Letter_Receipt_by_Candidate",
     'willing_to_join_remarks' => "VARCHAR(1000) AFTER Willing_to_Join",
     'Shortlist_remarks' => "VARCHAR(1000) AFTER Shortlist_Candidate_Status",
+    'Candidate_Joining_Future_Date' => "DATE AFTER Candidate_Joined_Date",
+    'Candidate_Join_Remarks_Type' => "VARCHAR(255) AFTER Remarks_Candidate_Join",
 ];
 foreach ($jobFairResultColumnDefinitions as $columnName => $columnDefinition) {
     $escapedColumnName = str_replace("'", "\\'", $columnName);
@@ -119,6 +121,12 @@ foreach ($jobFairResultColumnDefinitions as $columnName => $columnDefinition) {
     if ($columnStmt->fetchAll() === []) {
         db()->query("ALTER TABLE job_fair_result ADD COLUMN {$columnName} {$columnDefinition}");
     }
+}
+
+$candidateJoinedStatusColumnRows = db()->query("SHOW COLUMNS FROM job_fair_result LIKE 'Candidate_Joined_Status'")->fetchAll();
+$candidateJoinedStatusType = strtolower((string) ($candidateJoinedStatusColumnRows[0]['Type'] ?? ''));
+if ($candidateJoinedStatusType !== '' && str_contains($candidateJoinedStatusType, "'not applicable'")) {
+    db()->query("ALTER TABLE job_fair_result MODIFY COLUMN Candidate_Joined_Status ENUM('Yes','No','Pending','Future Date')");
 }
 
 db()->query(
@@ -413,7 +421,7 @@ $editableFieldConfig = [
     [
         'panel_label' => 'Selected',
         'field_name' => 'Candidate_Joined_Status',
-        'field_type' => "enum('Yes','No','Pending','Not Applicable')",
+        'field_type' => "enum('Yes','No','Pending','Future Date')",
         'group_label' => 'Candidate Joined details',
         'row_position' => 9,
         'column_position' => 1,
@@ -428,11 +436,27 @@ $editableFieldConfig = [
     ],
     [
         'panel_label' => 'Selected',
+        'field_name' => 'Candidate_Joining_Future_Date',
+        'field_type' => 'Date textbox',
+        'group_label' => 'Candidate Joined details',
+        'row_position' => 9,
+        'column_position' => 3,
+    ],
+    [
+        'panel_label' => 'Selected',
         'field_name' => 'Remarks_Candidate_Join',
         'field_type' => 'varchar',
         'group_label' => 'Candidate Joined details',
         'row_position' => 10,
         'column_position' => 1,
+    ],
+    [
+        'panel_label' => 'Selected',
+        'field_name' => 'Candidate_Join_Remarks_Type',
+        'field_type' => "enum('Not Joined - No Reason Specified','Not Interested - General','Not Interested - Location / Relocation','Not Interested - Salary','Not Interested - Accommodation / Food','Not Interested - Got Another Job','Not Interested - Job Mismatch / Field','Exam / Study Related','Personal Reasons','Offer Letter Issues','Not Responding','Interview / Selection Process','Rejected','NAPS / Apprenticeship Related','Medical / Visa Proceedings','Joined','Joining - Confirmed / Upcoming')",
+        'group_label' => 'Candidate Joined details',
+        'row_position' => 10,
+        'column_position' => 2,
     ],
 ];
 
@@ -457,7 +481,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'Challenge_to_be_addressed',
         'Candidate_Joined_Status',
         'Candidate_Joined_Date',
+        'Candidate_Joining_Future_Date',
         'Remarks_Candidate_Join',
+        'Candidate_Join_Remarks_Type',
     ];
 
     if ($candidateId > 0) {
