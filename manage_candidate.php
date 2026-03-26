@@ -68,6 +68,7 @@ render_header('Manage Candidate');
 .status-rejected { color:#dc3545; background:#f8d7da; border-color:#f1aeb5; }
 .offer-letter-link-icon { font-size:1rem; line-height:1; text-decoration:none; }
 .offer-letter-link-icon.disabled { opacity:0.45; pointer-events:none; cursor:not-allowed; }
+.focus-field-label { color:#800000; font-weight:600; }
 </style>
 
 <script>
@@ -129,23 +130,42 @@ function statusChip(label, value) {
     return `<span class="status-chip ${statusClass}">${escapeHtml(label)}: ${escapeHtml(normalizedValue || 'N/A')}</span>`;
 }
 
+
+function shouldHighlightFieldLabel(fieldName) {
+    const highlightFields = new Set([
+        'offerlettergeneratedremarks',
+        'confirmletterreceiptremarks',
+        'willingtojoinremarks',
+        'responsefromemployer',
+        'challengetobeaddressed',
+        'remarkscandidatejoin',
+        'shortlistremarks',
+        'shortlistcurrentprocessstatus',
+        'shortlistnextprocess'
+    ]);
+    const normalizedFieldName = String(fieldName || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+    return highlightFields.has(normalizedFieldName);
+}
+
 function renderFieldControl(config, row) {
     const value = row[config.field_name] ?? '';
     const fieldNameNormalized = String(config.field_name || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
     const isOfferLetterField = fieldNameNormalized === 'linktoofferletter';
 
+    const labelClass = shouldHighlightFieldLabel(config.field_name) ? 'form-label focus-field-label' : 'form-label';
+
     if (config.field_type === 'label') {
-        return `<label class="form-label">${formatLabel(config.field_name)}</label><div class="form-control bg-light">${escapeHtml(value || 'N/A')}</div>`;
+        return `<label class="${labelClass}">${formatLabel(config.field_name)}</label><div class="form-control bg-light">${escapeHtml(value || 'N/A')}</div>`;
     }
     if (String(config.field_type).toLowerCase().startsWith('enum(')) {
         const options = enumValues(config.field_type).map((opt) => `<option value="${escapeHtml(opt)}" ${opt === value ? 'selected' : ''}>${escapeHtml(opt)}</option>`).join('');
-        return `<label class="form-label">${formatLabel(config.field_name)}</label><select class="form-select" name="${config.field_name}"><option value="">Select</option>${options}</select>`;
+        return `<label class="${labelClass}">${formatLabel(config.field_name)}</label><select class="form-select" name="${config.field_name}"><option value="">Select</option>${options}</select>`;
     }
     if (String(config.field_type).toLowerCase().includes('date textbox')) {
-        return `<label class="form-label">${formatLabel(config.field_name)}</label><input class="form-control" type="date" name="${config.field_name}" value="${escapeHtml(value || '')}">`;
+        return `<label class="${labelClass}">${formatLabel(config.field_name)}</label><input class="form-control" type="date" name="${config.field_name}" value="${escapeHtml(value || '')}">`;
     }
     if (String(config.field_type).toLowerCase().includes('date time')) {
-        return `<label class="form-label">${formatLabel(config.field_name)}</label><input class="form-control" type="datetime-local" name="${config.field_name}" value="${toInputDatetime(value)}">`;
+        return `<label class="${labelClass}">${formatLabel(config.field_name)}</label><input class="form-control" type="datetime-local" name="${config.field_name}" value="${toInputDatetime(value)}">`;
     }
 
     if (isOfferLetterField) {
@@ -154,7 +174,7 @@ function renderFieldControl(config, row) {
         const safeValue = escapeHtml(value || '');
         const canOpen = String(value || '').trim() !== '';
         return `
-            <label class="form-label d-flex justify-content-between align-items-center">
+            <label class="${labelClass} d-flex justify-content-between align-items-center">
                 <span>${formatLabel(config.field_name)}</span>
                 <a id="${iconId}" class="offer-letter-link-icon ${canOpen ? '' : 'disabled'}" href="${canOpen ? safeValue : '#'}" target="_blank" rel="noopener noreferrer" title="Open offer letter in a new tab" aria-label="Open offer letter in a new tab">🔗</a>
             </label>
@@ -162,7 +182,7 @@ function renderFieldControl(config, row) {
         `;
     }
 
-    return `<label class="form-label">${formatLabel(config.field_name)}</label><input class="form-control" type="text" name="${config.field_name}" value="${escapeHtml(value || '')}">`;
+    return `<label class="${labelClass}">${formatLabel(config.field_name)}</label><input class="form-control" type="text" name="${config.field_name}" value="${escapeHtml(value || '')}">`;
 }
 
 function updateOfferLetterLink(inputId, iconId) {
