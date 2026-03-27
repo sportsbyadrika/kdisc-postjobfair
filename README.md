@@ -14,6 +14,9 @@ A lightweight responsive web app for managing users and tracking project/CRM/rep
 - User management (admin only):
   - List + filter
   - Add/Edit/Deactivate actions via Bootstrap modal
+- Phone directory:
+  - View + filter for all logged-in users (Team, Name, Mobile Number, Location)
+  - Add/Edit/Deactivate entries for administrators
 - Activity management (both roles):
   - List + filter
   - Add/Edit/Deactivate actions via Bootstrap modal
