@@ -16,6 +16,26 @@ CREATE TABLE IF NOT EXISTS users (
   CONSTRAINT fk_users_modified_by FOREIGN KEY (modified_by) REFERENCES users(id) ON DELETE SET NULL
 );
 
+
+CREATE TABLE IF NOT EXISTS phone_directory (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(120) NOT NULL,
+  designation VARCHAR(120) NOT NULL,
+  team VARCHAR(120) NOT NULL,
+  mobile_number VARCHAR(20) NOT NULL,
+  email VARCHAR(150) DEFAULT NULL,
+  location VARCHAR(150) NOT NULL,
+  active_status TINYINT(1) NOT NULL DEFAULT 1,
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME NOT NULL,
+  modified_by INT DEFAULT NULL,
+  INDEX idx_phone_directory_team (team),
+  INDEX idx_phone_directory_name (name),
+  INDEX idx_phone_directory_mobile_number (mobile_number),
+  INDEX idx_phone_directory_location (location),
+  CONSTRAINT fk_phone_directory_modified_by FOREIGN KEY (modified_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
 CREATE TABLE IF NOT EXISTS activities (
   id INT AUTO_INCREMENT PRIMARY KEY,
   module_name ENUM('project', 'crm', 'report') NOT NULL,
