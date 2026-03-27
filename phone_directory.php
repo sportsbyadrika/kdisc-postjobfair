@@ -47,7 +47,12 @@ $filterLocation = trim($_GET['location'] ?? '');
 $filterStatus = $_GET['active_status'] ?? '';
 
 $teamStmt = db()->query('SELECT DISTINCT team FROM phone_directory WHERE team IS NOT NULL AND team <> "" ORDER BY team');
-$teams = $teamStmt->fetchAll(PDO::FETCH_COLUMN);
+$teamRows = $teamStmt->fetchAll();
+$teams = array_values(array_filter(array_map(static function (array $row): string {
+    return trim((string) ($row['team'] ?? ''));
+}, $teamRows), static function (string $team): bool {
+    return $team !== '';
+}));
 
 $sql = 'SELECT id, name, designation, team, mobile_number, email, location, active_status FROM phone_directory WHERE 1 = 1';
 $params = [];

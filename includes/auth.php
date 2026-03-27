@@ -53,8 +53,10 @@ function esc($value): string
     }
 
     if (is_array($value)) {
-        $value = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '';
-    } elseif (is_object($value)) {
+        return '';
+    }
+
+    if (is_object($value)) {
         $value = method_exists($value, '__toString') ? (string) $value : '';
     }
 
