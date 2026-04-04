@@ -60,7 +60,10 @@ if (!array_key_exists($section, CONSOLIDATED_SECTION_LABELS)) {
 }
 
 $sectionMetrics = CONSOLIDATED_METRIC_LABELS[$section];
-$defaultMetric = $section === 'selected' ? 'total_selected_candidate' : 'total_shortlisted_onhold_candidate';
+$defaultMetric = 'total_shortlisted_onhold_candidate';
+if ($section === 'selected') {
+    $defaultMetric = 'total_selected_candidate';
+}
 if (!array_key_exists($metric, $sectionMetrics)) {
     $metric = $defaultMetric;
 }

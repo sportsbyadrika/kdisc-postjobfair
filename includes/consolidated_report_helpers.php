@@ -30,6 +30,8 @@ const CONSOLIDATED_CANDIDATE_COLUMNS = [
 const CONSOLIDATED_SECTION_LABELS = [
     'selected' => 'First Section: List of Selected Candidate',
     'shortlisted' => 'Second Section: List of Shortlisted/Onhold Candidates',
+    'shortlisted_rounds_pending' => 'Third Section: List of Shortlisted/On hold Interview Rounds',
+    'shortlisted_rounds_selected' => 'Fourth Section: List of Shortlisted/On hold Interview rounds of Selected Candidates',
 ];
 
 const CONSOLIDATED_METRIC_LABELS = [
@@ -69,6 +71,16 @@ const CONSOLIDATED_METRIC_LABELS = [
         'joined_no' => 'Candidate Joined: No',
         'joined_pending' => 'Candidate Joined: Pending',
     ],
+    'shortlisted_rounds_pending' => [
+        'total_shortlisted_onhold_candidate' => 'Total Shortlisted/Onhold Candidate count',
+        'shortlist_conversion_pending_count' => 'Shortlisted Conversion pending count',
+        'round_status_count' => 'Round status count',
+    ],
+    'shortlisted_rounds_selected' => [
+        'total_shortlisted_onhold_candidate' => 'Total Shortlisted/Onhold Candidate count',
+        'shortlist_conversion_selected_count' => 'Shortlisted Conversion Selected count',
+        'round_status_count' => 'Round status count',
+    ],
 ];
 
 function fetch_consolidated_distinct_values(string $column): array
@@ -88,6 +100,8 @@ function build_consolidated_filters(): array
         'job_fair' => trim((string) ($_GET['job_fair'] ?? '')),
         'category' => trim((string) ($_GET['category'] ?? '')),
         'selection_status' => trim((string) ($_GET['selection_status'] ?? '')),
+        'round_number' => trim((string) ($_GET['round_number'] ?? '')),
+        'round_selection_status' => trim((string) ($_GET['round_selection_status'] ?? '')),
     ];
 }
 
@@ -213,12 +227,13 @@ function fetch_shortlisted_onhold_report(array $filters): array
     return $stmt->fetchAll();
 }
 
-function fetch_shortlisted_onhold_round_pivot_report(array $filters): array
+function fetch_shortlisted_onhold_round_pivot_report(array $filters, string $conversionType = 'pending'): array
 {
     $params = [];
     $conditions = build_common_conditions($filters, $params);
     $selectionStatusExpression = normalized_column('jfr.Selection_Status');
     $shortlistStatusExpression = normalized_column('jfr.Shortlist_Candidate_Status');
+    $categoryExpression = normalized_column('jfr.Category');
     $conditions[] = "$selectionStatusExpression IN ('shortlisted', 'onhold')";
 
     if ($filters['selection_status'] !== '') {
@@ -226,7 +241,9 @@ function fetch_shortlisted_onhold_round_pivot_report(array $filters): array
         $params[] = strtolower(str_replace(' ', '', $filters['selection_status']));
     }
 
-    $pendingCondition = "$shortlistStatusExpression IN ('onhold', '', 'shortlisted')";
+    $pendingCondition = "$shortlistStatusExpression IN ('onhold', '', 'shortlisted') AND $categoryExpression NOT IN ('k-disc-rtd', 'rtd')";
+    $selectedCondition = "$shortlistStatusExpression = 'selected'";
+    $conversionCondition = $conversionType === 'selected' ? $selectedCondition : $pendingCondition;
     $whereClause = 'WHERE ' . implode(' AND ', $conditions);
 
     $baseParams = $params;
@@ -234,7 +251,7 @@ function fetch_shortlisted_onhold_round_pivot_report(array $filters): array
         FROM job_fair_result jfr
         INNER JOIN candidate_shortlist_rounds csr ON csr.candidate_id = jfr.id
         $whereClause
-        AND $pendingCondition
+        AND $conversionCondition
         ORDER BY csr.round_number ASC";
     $dateStmt = db()->prepare($dateSql);
     $dateStmt->execute($baseParams);
@@ -243,7 +260,7 @@ function fetch_shortlisted_onhold_round_pivot_report(array $filters): array
     $latestRoundSql = "SELECT
             COALESCE(NULLIF(TRIM(jfr.Job_Fair_No), ''), 'Unknown') AS job_fair_no,
             COUNT(*) AS total_shortlisted_onhold_candidate,
-            SUM(CASE WHEN $pendingCondition THEN 1 ELSE 0 END) AS shortlist_conversion_pending_count
+            SUM(CASE WHEN $conversionCondition THEN 1 ELSE 0 END) AS shortlist_conversion_count
         FROM job_fair_result jfr
         $whereClause
         GROUP BY job_fair_no
@@ -284,7 +301,7 @@ function fetch_shortlisted_onhold_round_pivot_report(array $filters): array
             FROM job_fair_result jfr
             INNER JOIN candidate_shortlist_rounds csr ON csr.candidate_id = jfr.id
             $whereClause
-            AND $pendingCondition
+            AND $conversionCondition
         ) AS grouped
         WHERE grouped.row_num = 1
         GROUP BY grouped.job_fair_no, grouped.round_number, grouped.round_selection_status";
@@ -471,6 +488,58 @@ function build_consolidated_detail_conditions(string $section, string $metric, a
             case 'total_selected_candidate':
             default:
                 break;
+        }
+
+        return $conditions;
+    }
+
+    if ($section === 'shortlisted_rounds_pending' || $section === 'shortlisted_rounds_selected') {
+        $conditions[] = "$selectionStatusExpression IN ('shortlisted', 'onhold')";
+
+        if ($filters['selection_status'] !== '') {
+            $conditions[] = "$selectionStatusExpression = ?";
+            $params[] = strtolower(str_replace(' ', '', $filters['selection_status']));
+        }
+
+        $categoryExpression = normalized_column('Category');
+        $pendingCondition = "$shortlistStatusExpression IN ('onhold', '', 'shortlisted')";
+        $selectedCondition = "$shortlistStatusExpression = 'selected'";
+        $isPendingSection = $section === 'shortlisted_rounds_pending';
+
+        if ($metric === 'round_status_count') {
+            $conditions[] = $isPendingSection ? $pendingCondition : $selectedCondition;
+            if ($isPendingSection) {
+                $conditions[] = "$categoryExpression NOT IN ('k-disc-rtd', 'rtd')";
+            }
+            $roundNumber = trim((string) ($filters['round_number'] ?? ''));
+            $roundSelectionStatus = trim((string) ($filters['round_selection_status'] ?? ''));
+            if ($roundNumber !== '' && ctype_digit($roundNumber) && $roundSelectionStatus !== '') {
+                $conditions[] = "EXISTS (
+                    SELECT 1
+                    FROM (
+                        SELECT csr2.round_selection_status
+                        FROM candidate_shortlist_rounds csr2
+                        WHERE csr2.candidate_id = job_fair_result.id
+                        AND csr2.round_number = ?
+                        ORDER BY csr2.round_scheduled_date DESC, csr2.id DESC
+                        LIMIT 1
+                    ) latest_round
+                    WHERE latest_round.round_selection_status = ?
+                )";
+                $params[] = (int) $roundNumber;
+                $params[] = $roundSelectionStatus;
+            } else {
+                $conditions[] = '1 = 0';
+            }
+        }
+
+        if ($metric === 'shortlist_conversion_pending_count') {
+            $conditions[] = $pendingCondition;
+            $conditions[] = "$categoryExpression NOT IN ('k-disc-rtd', 'rtd')";
+        }
+
+        if ($metric === 'shortlist_conversion_selected_count') {
+            $conditions[] = $selectedCondition;
         }
 
         return $conditions;
