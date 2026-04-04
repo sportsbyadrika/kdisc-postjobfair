@@ -496,8 +496,9 @@ function fetch_shortlisted_onhold_joined_status_call_stage_pivot_report(array $f
     $stageSql = "SELECT DISTINCT COALESCE(NULLIF(TRIM(ch.stage), ''), 'Unknown') AS stage_label
         FROM job_fair_result jfr
         INNER JOIN candidate_call_history ch ON ch.candidate_id = jfr.id
+        INNER JOIN users u ON u.id = ch.created_by
         $whereClause
-        AND $eligibleCondition
+        AND u.role = 'district_user'
         AND $joinedOtherCondition
         ORDER BY stage_label ASC";
     $stageStmt = db()->prepare($stageSql);
@@ -534,8 +535,9 @@ function fetch_shortlisted_onhold_joined_status_call_stage_pivot_report(array $f
             COUNT(*) AS total_count
         FROM job_fair_result jfr
         INNER JOIN candidate_call_history ch ON ch.candidate_id = jfr.id
+        INNER JOIN users u ON u.id = ch.created_by
         $whereClause
-        AND $eligibleCondition
+        AND u.role = 'district_user'
         AND $joinedOtherCondition
         GROUP BY job_fair_no, stage_label";
     $pivotStmt = db()->prepare($pivotSql);
@@ -769,7 +771,9 @@ function build_consolidated_detail_conditions(string $section, string $metric, a
                 $conditions[] = "EXISTS (
                     SELECT 1
                     FROM candidate_call_history cch
+                    INNER JOIN users u ON u.id = cch.created_by
                     WHERE cch.candidate_id = job_fair_result.id
+                    AND u.role = 'district_user'
                     AND COALESCE(NULLIF(TRIM(cch.stage), ''), 'Unknown') = ?
                 )";
                 $params[] = $callStage;
@@ -1015,6 +1019,7 @@ function fetch_consolidated_call_history_detail_rows(string $section, string $me
         INNER JOIN candidate_call_history ch ON ch.candidate_id = jfr.id
         LEFT JOIN candidate_call_purpose cp ON cp.id = ch.purpose_id
         $whereClause
+        " . (($section === 'crm_call_count_joined_status' && $metric === 'call_stage_count_joined_other') ? " AND EXISTS (SELECT 1 FROM users u WHERE u.id = ch.created_by AND u.role = 'district_user')" : '') . "
         " . ($callStage !== '' ? " AND COALESCE(NULLIF(TRIM(ch.stage), ''), 'Unknown') = ?" : '') . "
         ORDER BY job_fair_no ASC, jfr.Employer_Name ASC, jfr.Candidate_Name ASC, ch.call_datetime DESC, ch.id DESC";
 
