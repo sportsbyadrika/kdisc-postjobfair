@@ -92,6 +92,9 @@ $roundPivotSelectedStatusLabels = $roundPivotSelectedReport['status_labels'];
 $callStagePivotReport = fetch_shortlisted_onhold_call_stage_pivot_report($filters);
 $callStagePivotRows = $callStagePivotReport['rows'];
 $callStagePivotStages = $callStagePivotReport['stages'];
+$joinedStatusCallStagePivotReport = fetch_shortlisted_onhold_joined_status_call_stage_pivot_report($filters);
+$joinedStatusCallStagePivotRows = $joinedStatusCallStagePivotReport['rows'];
+$joinedStatusCallStagePivotStages = $joinedStatusCallStagePivotReport['stages'];
 
 render_header('Consolidated report', ['main_container_class' => 'container-fluid']);
 ?>
@@ -534,6 +537,73 @@ render_header('Consolidated report', ['main_container_class' => 'container-fluid
                         <td><?= render_metric_link($crmTotalPending, 'crm_call_count_pending', 'shortlist_conversion_pending_count', null, $filters) ?></td>
                         <?php foreach ($callStagePivotStages as $stageLabel): ?>
                             <td><?= render_metric_link((int) $callStageTotals[$stageLabel], 'crm_call_count_pending', 'call_stage_count', null, $filters, ['call_stage' => $stageLabel]) ?></td>
+                        <?php endforeach; ?>
+                    </tr>
+                <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <h2 class="h5">Sixth Section: CRM Call count based on Shortlisted/On hold candidates (based on Candidate Joined Status)</h2>
+        <div class="table-responsive">
+            <table class="table table-bordered table-striped align-middle mb-0">
+                <thead>
+                <tr>
+                    <th rowspan="2">Job Fair No</th>
+                    <th rowspan="2">Total Shortlisted/Onhold Candidate count</th>
+                    <th rowspan="2">Candidate Joined Status count (other than Yes/No)</th>
+                    <?php if ($joinedStatusCallStagePivotStages === []): ?>
+                        <th rowspan="2">Call History Stage based pivot report</th>
+                    <?php else: ?>
+                        <th colspan="<?= count($joinedStatusCallStagePivotStages) ?>" class="text-center">Call History Stage based pivot report</th>
+                    <?php endif; ?>
+                </tr>
+                <tr>
+                    <?php foreach ($joinedStatusCallStagePivotStages as $stageLabel): ?>
+                        <th><?= esc($stageLabel) ?></th>
+                    <?php endforeach; ?>
+                </tr>
+                </thead>
+                <tbody>
+                <?php if ($joinedStatusCallStagePivotRows === []): ?>
+                    <tr><td colspan="<?= $joinedStatusCallStagePivotStages === [] ? 4 : (3 + count($joinedStatusCallStagePivotStages)) ?>" class="text-center text-muted">No data available.</td></tr>
+                <?php endif; ?>
+                <?php
+                $joinedStatusCallStageTotals = array_fill_keys($joinedStatusCallStagePivotStages, 0);
+                $joinedStatusTotalShortlisted = 0;
+                $joinedStatusOtherCount = 0;
+                ?>
+                <?php foreach ($joinedStatusCallStagePivotRows as $row): ?>
+                    <?php
+                    $joinedStatusTotalShortlisted += (int) $row['total_shortlisted_onhold_candidate'];
+                    $joinedStatusOtherCount += (int) $row['candidate_joined_status_other_count'];
+                    ?>
+                    <tr>
+                        <td><?= esc($row['job_fair_no']) ?></td>
+                        <td><?= render_metric_link((int) $row['total_shortlisted_onhold_candidate'], 'crm_call_count_joined_status', 'total_shortlisted_onhold_candidate', (string) $row['job_fair_no'], $filters) ?></td>
+                        <td><?= render_metric_link((int) $row['candidate_joined_status_other_count'], 'crm_call_count_joined_status', 'candidate_joined_status_other_count', (string) $row['job_fair_no'], $filters) ?></td>
+                        <?php if ($joinedStatusCallStagePivotStages === []): ?>
+                            <td class="text-center text-muted">No call history found</td>
+                        <?php else: ?>
+                            <?php foreach ($joinedStatusCallStagePivotStages as $stageLabel): ?>
+                                <?php $count = (int) ($row['pivot'][$stageLabel] ?? 0); ?>
+                                <?php $joinedStatusCallStageTotals[$stageLabel] += $count; ?>
+                                <td><?= render_metric_link($count, 'crm_call_count_joined_status', 'call_stage_count_joined_other', (string) $row['job_fair_no'], $filters, ['call_stage' => $stageLabel]) ?></td>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tr>
+                <?php endforeach; ?>
+                <?php if ($joinedStatusCallStagePivotRows !== []): ?>
+                    <tr class="table-secondary fw-semibold">
+                        <td>Total</td>
+                        <td><?= render_metric_link($joinedStatusTotalShortlisted, 'crm_call_count_joined_status', 'total_shortlisted_onhold_candidate', null, $filters) ?></td>
+                        <td><?= render_metric_link($joinedStatusOtherCount, 'crm_call_count_joined_status', 'candidate_joined_status_other_count', null, $filters) ?></td>
+                        <?php foreach ($joinedStatusCallStagePivotStages as $stageLabel): ?>
+                            <td><?= render_metric_link((int) $joinedStatusCallStageTotals[$stageLabel], 'crm_call_count_joined_status', 'call_stage_count_joined_other', null, $filters, ['call_stage' => $stageLabel]) ?></td>
                         <?php endforeach; ?>
                     </tr>
                 <?php endif; ?>
