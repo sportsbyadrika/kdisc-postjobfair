@@ -497,6 +497,7 @@ function fetch_shortlisted_onhold_joined_status_call_stage_pivot_report(array $f
         FROM job_fair_result jfr
         INNER JOIN candidate_call_history ch ON ch.candidate_id = jfr.id
         $whereClause
+        AND $eligibleCondition
         AND $joinedOtherCondition
         ORDER BY stage_label ASC";
     $stageStmt = db()->prepare($stageSql);
@@ -534,6 +535,7 @@ function fetch_shortlisted_onhold_joined_status_call_stage_pivot_report(array $f
         FROM job_fair_result jfr
         INNER JOIN candidate_call_history ch ON ch.candidate_id = jfr.id
         $whereClause
+        AND $eligibleCondition
         AND $joinedOtherCondition
         GROUP BY job_fair_no, stage_label";
     $pivotStmt = db()->prepare($pivotSql);
