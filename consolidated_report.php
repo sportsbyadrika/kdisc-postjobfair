@@ -16,6 +16,7 @@ function consolidated_metric_url(string $section, string $metric, ?string $jobFa
         'selection_status' => $filters['selection_status'],
         'round_number' => $extraParams['round_number'] ?? '',
         'round_selection_status' => $extraParams['round_selection_status'] ?? '',
+        'call_stage' => $extraParams['call_stage'] ?? '',
     ], static fn($value): bool => $value !== null && $value !== '');
 
     return 'consolidated_report_candidates.php?' . http_build_query($params);
@@ -88,6 +89,9 @@ $roundPivotSelectedReport = fetch_shortlisted_onhold_round_pivot_report($filters
 $roundPivotSelectedRows = $roundPivotSelectedReport['rows'];
 $roundPivotSelectedRounds = $roundPivotSelectedReport['round_numbers'];
 $roundPivotSelectedStatusLabels = $roundPivotSelectedReport['status_labels'];
+$callStagePivotReport = fetch_shortlisted_onhold_call_stage_pivot_report($filters);
+$callStagePivotRows = $callStagePivotReport['rows'];
+$callStagePivotStages = $callStagePivotReport['stages'];
 
 render_header('Consolidated report', ['main_container_class' => 'container-fluid']);
 ?>
@@ -463,6 +467,73 @@ render_header('Consolidated report', ['main_container_class' => 'container-fluid
                             <?php foreach ($roundPivotSelectedStatusLabels as $statusLabel): ?>
                                 <td><?= render_metric_link((int) $pivotSelectedTotals[$roundNumber][$statusLabel], 'shortlisted_rounds_selected', 'round_status_count', null, $filters, ['round_number' => $roundNumber, 'round_selection_status' => $statusLabel]) ?></td>
                             <?php endforeach; ?>
+                        <?php endforeach; ?>
+                    </tr>
+                <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <h2 class="h5">Fifth Section: CRM Call count based on Shortlisted/On hold candidates</h2>
+        <div class="table-responsive">
+            <table class="table table-bordered table-striped align-middle mb-0">
+                <thead>
+                <tr>
+                    <th rowspan="2">Job Fair No</th>
+                    <th rowspan="2">Total Shortlisted/Onhold Candidate count</th>
+                    <th rowspan="2">Shortlisted Conversion pending count</th>
+                    <?php if ($callStagePivotStages === []): ?>
+                        <th rowspan="2">Call History Stage based pivot report</th>
+                    <?php else: ?>
+                        <th colspan="<?= count($callStagePivotStages) ?>" class="text-center">Call History Stage based pivot report</th>
+                    <?php endif; ?>
+                </tr>
+                <tr>
+                    <?php foreach ($callStagePivotStages as $stageLabel): ?>
+                        <th><?= esc($stageLabel) ?></th>
+                    <?php endforeach; ?>
+                </tr>
+                </thead>
+                <tbody>
+                <?php if ($callStagePivotRows === []): ?>
+                    <tr><td colspan="<?= $callStagePivotStages === [] ? 4 : (3 + count($callStagePivotStages)) ?>" class="text-center text-muted">No data available.</td></tr>
+                <?php endif; ?>
+                <?php
+                $callStageTotals = array_fill_keys($callStagePivotStages, 0);
+                $crmTotalShortlisted = 0;
+                $crmTotalPending = 0;
+                ?>
+                <?php foreach ($callStagePivotRows as $row): ?>
+                    <?php
+                    $crmTotalShortlisted += (int) $row['total_shortlisted_onhold_candidate'];
+                    $crmTotalPending += (int) $row['shortlist_conversion_count'];
+                    ?>
+                    <tr>
+                        <td><?= esc($row['job_fair_no']) ?></td>
+                        <td><?= render_metric_link((int) $row['total_shortlisted_onhold_candidate'], 'crm_call_count_pending', 'total_shortlisted_onhold_candidate', (string) $row['job_fair_no'], $filters) ?></td>
+                        <td><?= render_metric_link((int) $row['shortlist_conversion_count'], 'crm_call_count_pending', 'shortlist_conversion_pending_count', (string) $row['job_fair_no'], $filters) ?></td>
+                        <?php if ($callStagePivotStages === []): ?>
+                            <td class="text-center text-muted">No call history found</td>
+                        <?php else: ?>
+                            <?php foreach ($callStagePivotStages as $stageLabel): ?>
+                                <?php $count = (int) ($row['pivot'][$stageLabel] ?? 0); ?>
+                                <?php $callStageTotals[$stageLabel] += $count; ?>
+                                <td><?= render_metric_link($count, 'crm_call_count_pending', 'call_stage_count', (string) $row['job_fair_no'], $filters, ['call_stage' => $stageLabel]) ?></td>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tr>
+                <?php endforeach; ?>
+                <?php if ($callStagePivotRows !== []): ?>
+                    <tr class="table-secondary fw-semibold">
+                        <td>Total</td>
+                        <td><?= render_metric_link($crmTotalShortlisted, 'crm_call_count_pending', 'total_shortlisted_onhold_candidate', null, $filters) ?></td>
+                        <td><?= render_metric_link($crmTotalPending, 'crm_call_count_pending', 'shortlist_conversion_pending_count', null, $filters) ?></td>
+                        <?php foreach ($callStagePivotStages as $stageLabel): ?>
+                            <td><?= render_metric_link((int) $callStageTotals[$stageLabel], 'crm_call_count_pending', 'call_stage_count', null, $filters, ['call_stage' => $stageLabel]) ?></td>
                         <?php endforeach; ?>
                     </tr>
                 <?php endif; ?>
