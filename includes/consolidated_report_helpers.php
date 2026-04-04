@@ -143,8 +143,12 @@ function job_fair_result_has_id_column(): bool
         return $hasIdColumn;
     }
 
-    $columnRows = db()->query("SHOW COLUMNS FROM job_fair_result LIKE 'id'")->fetchAll();
-    $hasIdColumn = $columnRows !== [];
+    try {
+        db()->query('SELECT id FROM job_fair_result LIMIT 1');
+        $hasIdColumn = true;
+    } catch (Throwable $exception) {
+        $hasIdColumn = false;
+    }
 
     return $hasIdColumn;
 }
