@@ -355,7 +355,7 @@ render_header('Consolidated report', ['main_container_class' => 'container-fluid
                 <?php foreach ($roundPivotRows as $row): ?>
                     <?php
                     $totalShortlisted += (int) $row['total_shortlisted_onhold_candidate'];
-                    $totalPending += (int) $row['shortlist_conversion_pending_count'];
+                    $totalPending += (int) $row['shortlist_conversion_count'];
                     ?>
                     <tr>
                         <td><?= esc($row['job_fair_no']) ?></td>
