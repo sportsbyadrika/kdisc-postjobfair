@@ -43,6 +43,7 @@ const CONSOLIDATED_SECTION_LABELS = [
     'shortlisted_rounds_pending' => 'Third Section: List of Shortlisted/On hold Interview Rounds',
     'shortlisted_rounds_selected' => 'Fourth Section: List of Shortlisted/On hold Interview rounds of Selected Candidates',
     'crm_call_count_pending' => 'Fifth Section: CRM Call count based on Shortlisted/On hold candidates',
+    'crm_call_count_joined_status' => 'Sixth Section: CRM Call count based on Shortlisted/On hold candidates (based on Candidate Joined Status)',
 ];
 
 const CONSOLIDATED_METRIC_LABELS = [
@@ -97,11 +98,16 @@ const CONSOLIDATED_METRIC_LABELS = [
         'shortlist_conversion_pending_count' => 'Shortlisted Conversion pending count',
         'call_stage_count' => 'Call stage count',
     ],
+    'crm_call_count_joined_status' => [
+        'total_shortlisted_onhold_candidate' => 'Total Shortlisted/Onhold Candidate count',
+        'candidate_joined_status_other_count' => 'Candidate Joined Status count (other than Yes/No)',
+        'call_stage_count_joined_other' => 'Call stage count',
+    ],
 ];
 
 function consolidated_detail_columns(string $section): array
 {
-    if ($section === 'crm_call_count_pending') {
+    if ($section === 'crm_call_count_pending' || $section === 'crm_call_count_joined_status') {
         return [...CONSOLIDATED_CANDIDATE_COLUMNS, ...CONSOLIDATED_CALL_HISTORY_COLUMNS];
     }
 
@@ -466,6 +472,87 @@ function fetch_shortlisted_onhold_call_stage_pivot_report(array $filters): array
     return ['stages' => $stages, 'rows' => $rows];
 }
 
+function fetch_shortlisted_onhold_joined_status_call_stage_pivot_report(array $filters): array
+{
+    $params = [];
+    $conditions = build_common_conditions($filters, $params);
+    $selectionStatusExpression = normalized_column('jfr.Selection_Status');
+    $joinedStatusExpression = normalized_column('jfr.Candidate_Joined_Status');
+    $conditions[] = "$selectionStatusExpression IN ('shortlisted', 'onhold')";
+
+    if ($filters['selection_status'] !== '') {
+        $conditions[] = "$selectionStatusExpression = ?";
+        $params[] = strtolower(str_replace(' ', '', $filters['selection_status']));
+    }
+
+    $joinedOtherCondition = "($joinedStatusExpression NOT IN ('yes', 'no') OR $joinedStatusExpression = '')";
+    $whereClause = 'WHERE ' . implode(' AND ', $conditions);
+
+    $stageSql = "SELECT DISTINCT COALESCE(NULLIF(TRIM(ch.stage), ''), 'Unknown') AS stage_label
+        FROM job_fair_result jfr
+        INNER JOIN candidate_call_history ch ON ch.candidate_id = jfr.id
+        $whereClause
+        AND $joinedOtherCondition
+        ORDER BY stage_label ASC";
+    $stageStmt = db()->prepare($stageSql);
+    $stageStmt->execute($params);
+    $stages = array_map(static fn(array $row): string => (string) $row['stage_label'], $stageStmt->fetchAll());
+
+    $baseSql = "SELECT
+            COALESCE(NULLIF(TRIM(jfr.Job_Fair_No), ''), 'Unknown') AS job_fair_no,
+            COUNT(*) AS total_shortlisted_onhold_candidate,
+            SUM(CASE WHEN $joinedOtherCondition THEN 1 ELSE 0 END) AS candidate_joined_status_other_count
+        FROM job_fair_result jfr
+        $whereClause
+        GROUP BY job_fair_no
+        ORDER BY job_fair_no ASC";
+    $baseStmt = db()->prepare($baseSql);
+    $baseStmt->execute($params);
+    $rows = $baseStmt->fetchAll();
+
+    foreach ($rows as &$row) {
+        foreach ($stages as $stage) {
+            $row['pivot'][$stage] = 0;
+        }
+    }
+    unset($row);
+
+    if ($rows === [] || $stages === []) {
+        return ['stages' => $stages, 'rows' => $rows];
+    }
+
+    $pivotSql = "SELECT
+            COALESCE(NULLIF(TRIM(jfr.Job_Fair_No), ''), 'Unknown') AS job_fair_no,
+            COALESCE(NULLIF(TRIM(ch.stage), ''), 'Unknown') AS stage_label,
+            COUNT(*) AS total_count
+        FROM job_fair_result jfr
+        INNER JOIN candidate_call_history ch ON ch.candidate_id = jfr.id
+        $whereClause
+        AND $joinedOtherCondition
+        GROUP BY job_fair_no, stage_label";
+    $pivotStmt = db()->prepare($pivotSql);
+    $pivotStmt->execute($params);
+    $pivotRows = $pivotStmt->fetchAll();
+
+    $rowIndex = [];
+    foreach ($rows as $index => $row) {
+        $rowIndex[(string) $row['job_fair_no']] = $index;
+    }
+
+    foreach ($pivotRows as $pivotRow) {
+        $jobFairNo = (string) ($pivotRow['job_fair_no'] ?? '');
+        $stageLabel = (string) ($pivotRow['stage_label'] ?? '');
+        $count = (int) ($pivotRow['total_count'] ?? 0);
+        if (!isset($rowIndex[$jobFairNo]) || !isset($rows[$rowIndex[$jobFairNo]]['pivot'][$stageLabel])) {
+            continue;
+        }
+
+        $rows[$rowIndex[$jobFairNo]]['pivot'][$stageLabel] = $count;
+    }
+
+    return ['stages' => $stages, 'rows' => $rows];
+}
+
 function fetch_selected_candidates_report_by_job_station(array $filters): array
 {
     $params = [];
@@ -629,7 +716,7 @@ function build_consolidated_detail_conditions(string $section, string $metric, a
         return $conditions;
     }
 
-    if ($section === 'shortlisted_rounds_pending' || $section === 'shortlisted_rounds_selected' || $section === 'crm_call_count_pending') {
+    if ($section === 'shortlisted_rounds_pending' || $section === 'shortlisted_rounds_selected' || $section === 'crm_call_count_pending' || $section === 'crm_call_count_joined_status') {
         $conditions[] = "$selectionStatusExpression IN ('shortlisted', 'onhold')";
 
         if ($filters['selection_status'] !== '') {
@@ -645,6 +732,23 @@ function build_consolidated_detail_conditions(string $section, string $metric, a
         if ($metric === 'call_stage_count') {
             $conditions[] = $pendingCondition;
             $conditions[] = "$categoryExpression NOT IN ('k-disc-rtd', 'rtd')";
+            $callStage = trim((string) ($filters['call_stage'] ?? ''));
+            if ($callStage !== '' && job_fair_result_has_id_column()) {
+                $conditions[] = "EXISTS (
+                    SELECT 1
+                    FROM candidate_call_history cch
+                    WHERE cch.candidate_id = job_fair_result.id
+                    AND COALESCE(NULLIF(TRIM(cch.stage), ''), 'Unknown') = ?
+                )";
+                $params[] = $callStage;
+            } else {
+                $conditions[] = '1 = 0';
+            }
+        }
+
+        if ($metric === 'call_stage_count_joined_other') {
+            $joinedStatusExpression = normalized_column('Candidate_Joined_Status');
+            $conditions[] = "($joinedStatusExpression NOT IN ('yes', 'no') OR $joinedStatusExpression = '')";
             $callStage = trim((string) ($filters['call_stage'] ?? ''));
             if ($callStage !== '' && job_fair_result_has_id_column()) {
                 $conditions[] = "EXISTS (
@@ -698,6 +802,11 @@ function build_consolidated_detail_conditions(string $section, string $metric, a
 
         if ($metric === 'shortlist_conversion_selected_count') {
             $conditions[] = $selectedCondition;
+        }
+
+        if ($metric === 'candidate_joined_status_other_count') {
+            $joinedStatusExpression = normalized_column('Candidate_Joined_Status');
+            $conditions[] = "($joinedStatusExpression NOT IN ('yes', 'no') OR $joinedStatusExpression = '')";
         }
 
         return $conditions;
@@ -789,7 +898,10 @@ function build_consolidated_detail_conditions(string $section, string $metric, a
 
 function fetch_consolidated_detail_rows(string $section, string $metric, array $filters, ?string $jobFairRow, string $groupField = 'job_fair_no'): array
 {
-    if ($section === 'crm_call_count_pending' && $metric === 'call_stage_count') {
+    if (
+        ($section === 'crm_call_count_pending' && $metric === 'call_stage_count')
+        || ($section === 'crm_call_count_joined_status' && $metric === 'call_stage_count_joined_other')
+    ) {
         return fetch_consolidated_call_history_detail_rows($section, $metric, $filters, $jobFairRow, $groupField);
     }
 
