@@ -78,6 +78,10 @@ $shortlistedTotals = calculate_consolidated_totals($shortlistedRows, [
     'joined_no',
     'joined_pending',
 ]);
+$roundPivotReport = fetch_shortlisted_onhold_round_pivot_report($filters);
+$roundPivotRows = $roundPivotReport['rows'];
+$roundPivotRounds = $roundPivotReport['round_numbers'];
+$roundPivotStatusLabels = $roundPivotReport['status_labels'];
 
 render_header('Consolidated report', ['main_container_class' => 'container-fluid']);
 ?>
@@ -294,6 +298,86 @@ render_header('Consolidated report', ['main_container_class' => 'container-fluid
                         <td><?= render_metric_link($shortlistedTotals['joined_yes'], 'shortlisted', 'joined_yes', null, $filters) ?></td>
                         <td><?= render_metric_link($shortlistedTotals['joined_no'], 'shortlisted', 'joined_no', null, $filters) ?></td>
                         <td><?= render_metric_link($shortlistedTotals['joined_pending'], 'shortlisted', 'joined_pending', null, $filters) ?></td>
+                    </tr>
+                <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <h2 class="h5">Third Section: List of Shortlisted/On hold Interview Rounds</h2>
+        <div class="table-responsive">
+            <table class="table table-bordered table-striped align-middle mb-0">
+                <thead>
+                <tr>
+                    <th rowspan="2">Job Fair No</th>
+                    <th rowspan="2">Total Shortlisted/Onhold Candidate count</th>
+                    <th rowspan="2">Shortlisted Conversion pending count</th>
+                    <?php if ($roundPivotRounds === []): ?>
+                        <th rowspan="2">Round based pivot report</th>
+                    <?php else: ?>
+                        <?php foreach ($roundPivotRounds as $roundNumber): ?>
+                            <th colspan="<?= count($roundPivotStatusLabels) ?>" class="text-center">Round <?= esc($roundNumber) ?></th>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tr>
+                <tr>
+                    <?php foreach ($roundPivotRounds as $roundNumber): ?>
+                        <?php foreach ($roundPivotStatusLabels as $statusLabel): ?>
+                            <th><?= esc($statusLabel) ?></th>
+                        <?php endforeach; ?>
+                    <?php endforeach; ?>
+                </tr>
+                </thead>
+                <tbody>
+                <?php if ($roundPivotRows === []): ?>
+                    <tr><td colspan="<?= $roundPivotRounds === [] ? 4 : (3 + (count($roundPivotRounds) * count($roundPivotStatusLabels))) ?>" class="text-center text-muted">No data available.</td></tr>
+                <?php endif; ?>
+                <?php
+                $pivotTotals = [];
+                foreach ($roundPivotRounds as $roundNumber) {
+                    foreach ($roundPivotStatusLabels as $statusLabel) {
+                        $pivotTotals[$roundNumber][$statusLabel] = 0;
+                    }
+                }
+                $totalShortlisted = 0;
+                $totalPending = 0;
+                ?>
+                <?php foreach ($roundPivotRows as $row): ?>
+                    <?php
+                    $totalShortlisted += (int) $row['total_shortlisted_onhold_candidate'];
+                    $totalPending += (int) $row['shortlist_conversion_pending_count'];
+                    ?>
+                    <tr>
+                        <td><?= esc($row['job_fair_no']) ?></td>
+                        <td><?= (int) $row['total_shortlisted_onhold_candidate'] ?></td>
+                        <td><?= (int) $row['shortlist_conversion_pending_count'] ?></td>
+                        <?php if ($roundPivotRounds === []): ?>
+                            <td class="text-center text-muted">No rounds found</td>
+                        <?php else: ?>
+                            <?php foreach ($roundPivotRounds as $roundNumber): ?>
+                                <?php foreach ($roundPivotStatusLabels as $statusLabel): ?>
+                                    <?php $count = (int) ($row['pivot'][$roundNumber][$statusLabel] ?? 0); ?>
+                                    <?php $pivotTotals[$roundNumber][$statusLabel] += $count; ?>
+                                    <td><?= $count ?></td>
+                                <?php endforeach; ?>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tr>
+                <?php endforeach; ?>
+                <?php if ($roundPivotRows !== []): ?>
+                    <tr class="table-secondary fw-semibold">
+                        <td>Total</td>
+                        <td><?= $totalShortlisted ?></td>
+                        <td><?= $totalPending ?></td>
+                        <?php foreach ($roundPivotRounds as $roundNumber): ?>
+                            <?php foreach ($roundPivotStatusLabels as $statusLabel): ?>
+                                <td><?= (int) $pivotTotals[$roundNumber][$statusLabel] ?></td>
+                            <?php endforeach; ?>
+                        <?php endforeach; ?>
                     </tr>
                 <?php endif; ?>
                 </tbody>

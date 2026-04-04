@@ -213,6 +213,106 @@ function fetch_shortlisted_onhold_report(array $filters): array
     return $stmt->fetchAll();
 }
 
+function fetch_shortlisted_onhold_round_pivot_report(array $filters): array
+{
+    $params = [];
+    $conditions = build_common_conditions($filters, $params);
+    $selectionStatusExpression = normalized_column('jfr.Selection_Status');
+    $shortlistStatusExpression = normalized_column('jfr.Shortlist_Candidate_Status');
+    $conditions[] = "$selectionStatusExpression IN ('shortlisted', 'onhold')";
+
+    if ($filters['selection_status'] !== '') {
+        $conditions[] = "$selectionStatusExpression = ?";
+        $params[] = strtolower(str_replace(' ', '', $filters['selection_status']));
+    }
+
+    $pendingCondition = "$shortlistStatusExpression IN ('onhold', '', 'shortlisted')";
+    $whereClause = 'WHERE ' . implode(' AND ', $conditions);
+
+    $baseParams = $params;
+    $dateSql = "SELECT DISTINCT csr.round_number
+        FROM job_fair_result jfr
+        INNER JOIN candidate_shortlist_rounds csr ON csr.candidate_id = jfr.id
+        $whereClause
+        AND $pendingCondition
+        ORDER BY csr.round_number ASC";
+    $dateStmt = db()->prepare($dateSql);
+    $dateStmt->execute($baseParams);
+    $roundNumbers = array_map(static fn(array $row): string => (string) $row['round_number'], $dateStmt->fetchAll());
+
+    $latestRoundSql = "SELECT
+            COALESCE(NULLIF(TRIM(jfr.Job_Fair_No), ''), 'Unknown') AS job_fair_no,
+            COUNT(*) AS total_shortlisted_onhold_candidate,
+            SUM(CASE WHEN $pendingCondition THEN 1 ELSE 0 END) AS shortlist_conversion_pending_count
+        FROM job_fair_result jfr
+        $whereClause
+        GROUP BY job_fair_no
+        ORDER BY job_fair_no ASC";
+    $latestRoundStmt = db()->prepare($latestRoundSql);
+    $latestRoundStmt->execute($baseParams);
+    $rows = $latestRoundStmt->fetchAll();
+
+    $statusLabels = ['Selected', 'Rejected', 'Candidate not Attended', 'Candidate Not Willing'];
+    foreach ($rows as &$row) {
+        foreach ($roundNumbers as $roundNumber) {
+            foreach ($statusLabels as $statusLabel) {
+                $row['pivot'][$roundNumber][$statusLabel] = 0;
+            }
+        }
+    }
+    unset($row);
+
+    if ($rows === [] || $roundNumbers === []) {
+        return ['round_numbers' => $roundNumbers, 'rows' => $rows, 'status_labels' => $statusLabels];
+    }
+
+    $pivotParams = $params;
+    $pivotSql = "SELECT
+            grouped.job_fair_no,
+            grouped.round_number,
+            grouped.round_selection_status,
+            COUNT(*) AS total_count
+        FROM (
+            SELECT
+                COALESCE(NULLIF(TRIM(jfr.Job_Fair_No), ''), 'Unknown') AS job_fair_no,
+                csr.round_number,
+                csr.round_selection_status,
+                ROW_NUMBER() OVER (
+                    PARTITION BY csr.candidate_id, csr.round_number
+                    ORDER BY csr.round_scheduled_date DESC, csr.id DESC
+                ) AS row_num
+            FROM job_fair_result jfr
+            INNER JOIN candidate_shortlist_rounds csr ON csr.candidate_id = jfr.id
+            $whereClause
+            AND $pendingCondition
+        ) AS grouped
+        WHERE grouped.row_num = 1
+        GROUP BY grouped.job_fair_no, grouped.round_number, grouped.round_selection_status";
+    $pivotStmt = db()->prepare($pivotSql);
+    $pivotStmt->execute($pivotParams);
+    $pivotRows = $pivotStmt->fetchAll();
+
+    $rowIndex = [];
+    foreach ($rows as $index => $row) {
+        $rowIndex[(string) $row['job_fair_no']] = $index;
+    }
+
+    foreach ($pivotRows as $pivotRow) {
+        $jobFairNo = (string) ($pivotRow['job_fair_no'] ?? '');
+        $roundNumber = (string) ($pivotRow['round_number'] ?? '');
+        $statusLabel = (string) ($pivotRow['round_selection_status'] ?? '');
+        $totalCount = (int) ($pivotRow['total_count'] ?? 0);
+
+        if (!isset($rowIndex[$jobFairNo]) || !isset($rows[$rowIndex[$jobFairNo]]['pivot'][$roundNumber][$statusLabel])) {
+            continue;
+        }
+
+        $rows[$rowIndex[$jobFairNo]]['pivot'][$roundNumber][$statusLabel] = $totalCount;
+    }
+
+    return ['round_numbers' => $roundNumbers, 'rows' => $rows, 'status_labels' => $statusLabels];
+}
+
 function fetch_selected_candidates_report_by_job_station(array $filters): array
 {
     $params = [];
