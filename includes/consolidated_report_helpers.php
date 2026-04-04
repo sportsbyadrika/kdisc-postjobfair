@@ -210,6 +210,93 @@ function fetch_shortlisted_onhold_report(array $filters): array
     return $stmt->fetchAll();
 }
 
+function fetch_selected_candidates_report_by_job_station(array $filters): array
+{
+    $params = [];
+    $conditions = build_common_conditions($filters, $params);
+    $conditions[] = normalized_column('Selection_Status') . " = 'selected'";
+
+    $whereClause = 'WHERE ' . implode(' AND ', $conditions);
+
+    $sql = "SELECT
+            COALESCE(NULLIF(TRIM(Candidate_Jobstation), ''), 'Unknown') AS job_station,
+            COUNT(*) AS total_selected_candidate,
+            SUM(CASE WHEN LOWER(TRIM(COALESCE(Offer_Letter_Generated, ''))) = 'yes' THEN 1 ELSE 0 END) AS offer_generated_yes,
+            SUM(CASE WHEN LOWER(TRIM(COALESCE(Offer_Letter_Generated, ''))) IN ('no', 'pending') OR TRIM(COALESCE(Offer_Letter_Generated, '')) = '' THEN 1 ELSE 0 END) AS offer_generated_no,
+            SUM(CASE WHEN LOWER(TRIM(COALESCE(Offer_Letter_Generated, ''))) = 'pending' OR TRIM(COALESCE(Offer_Letter_Generated, '')) = '' THEN 1 ELSE 0 END) AS offer_generated_pending,
+            SUM(CASE WHEN TRIM(COALESCE(Link_to_Offer_letter, '')) <> '' THEN 1 ELSE 0 END) AS offer_link_with_link,
+            SUM(CASE WHEN TRIM(COALESCE(Link_to_Offer_letter, '')) = '' THEN 1 ELSE 0 END) AS offer_link_blank,
+            SUM(CASE WHEN LOWER(TRIM(COALESCE(Link_to_Offer_letter_verified, ''))) = 'yes' THEN 1 ELSE 0 END) AS link_verified_yes,
+            SUM(CASE WHEN LOWER(TRIM(COALESCE(Link_to_Offer_letter_verified, ''))) = 'no' THEN 1 ELSE 0 END) AS link_verified_no,
+            SUM(CASE WHEN LOWER(TRIM(COALESCE(Link_to_Offer_letter_verified, ''))) = 'pending' OR TRIM(COALESCE(Link_to_Offer_letter_verified, '')) = '' THEN 1 ELSE 0 END) AS link_verified_pending,
+            SUM(CASE WHEN LOWER(TRIM(COALESCE(Confirm_Offer_Letter_Receipt_by_Candidate, ''))) = 'yes' THEN 1 ELSE 0 END) AS receipt_confirmed_yes,
+            SUM(CASE WHEN LOWER(TRIM(COALESCE(Confirm_Offer_Letter_Receipt_by_Candidate, ''))) = 'no' THEN 1 ELSE 0 END) AS receipt_confirmed_no,
+            SUM(CASE WHEN LOWER(TRIM(COALESCE(Confirm_Offer_Letter_Receipt_by_Candidate, ''))) = 'pending' OR TRIM(COALESCE(Confirm_Offer_Letter_Receipt_by_Candidate, '')) = '' THEN 1 ELSE 0 END) AS receipt_confirmed_pending,
+            SUM(CASE WHEN LOWER(TRIM(COALESCE(Candidate_Joined_Status, ''))) = 'yes' THEN 1 ELSE 0 END) AS joined_yes,
+            SUM(CASE WHEN LOWER(TRIM(COALESCE(Candidate_Joined_Status, ''))) = 'no' THEN 1 ELSE 0 END) AS joined_no,
+            SUM(CASE WHEN LOWER(TRIM(COALESCE(Candidate_Joined_Status, ''))) = 'pending' OR TRIM(COALESCE(Candidate_Joined_Status, '')) = '' THEN 1 ELSE 0 END) AS joined_pending
+        FROM job_fair_result
+        $whereClause
+        GROUP BY job_station
+        ORDER BY job_station ASC";
+
+    $stmt = db()->prepare($sql);
+    $stmt->execute($params);
+
+    return $stmt->fetchAll();
+}
+
+function fetch_shortlisted_onhold_report_by_job_station(array $filters): array
+{
+    $params = [];
+    $conditions = build_common_conditions($filters, $params);
+
+    $selectionStatusExpression = normalized_column('Selection_Status');
+    $conditions[] = "$selectionStatusExpression IN ('shortlisted', 'onhold')";
+
+    if ($filters['selection_status'] !== '') {
+        $conditions[] = "$selectionStatusExpression = ?";
+        $params[] = strtolower(str_replace(' ', '', $filters['selection_status']));
+    }
+
+    $whereClause = 'WHERE ' . implode(' AND ', $conditions);
+
+    $shortlistStatusExpression = normalized_column('Shortlist_Candidate_Status');
+    $categoryExpression = normalized_column('Category');
+
+    $sql = "SELECT
+            COALESCE(NULLIF(TRIM(Candidate_Jobstation), ''), 'Unknown') AS job_station,
+            COUNT(*) AS total_shortlisted_onhold_candidate,
+            SUM(CASE WHEN $shortlistStatusExpression = 'shortlisted' THEN 1 ELSE 0 END) AS shortlist_status_shortlisted,
+            SUM(CASE WHEN $shortlistStatusExpression = 'selected' THEN 1 ELSE 0 END) AS shortlist_status_selected,
+            SUM(CASE WHEN ($selectionStatusExpression = 'selected' AND $categoryExpression IN ('k-disc-rtd', 'rtd')) OR ($shortlistStatusExpression = 'selected' AND $categoryExpression IN ('k-disc-rtd', 'rtd')) THEN 1 ELSE 0 END) AS shortlist_status_rtd_jobs,
+            SUM(CASE WHEN $shortlistStatusExpression IN ('rejected', 'candidatenotinterested') THEN 1 ELSE 0 END) AS shortlist_status_rejected,
+            SUM(CASE WHEN $shortlistStatusExpression IN ('onhold', '', 'shortlisted') THEN 1 ELSE 0 END) AS shortlist_status_onhold,
+            SUM(CASE WHEN $shortlistStatusExpression = 'selected' AND LOWER(TRIM(COALESCE(Offer_Letter_Generated, ''))) = 'yes' THEN 1 ELSE 0 END) AS offer_generated_yes,
+            SUM(CASE WHEN $shortlistStatusExpression = 'selected' AND (LOWER(TRIM(COALESCE(Offer_Letter_Generated, ''))) IN ('no', 'pending') OR TRIM(COALESCE(Offer_Letter_Generated, '')) = '') THEN 1 ELSE 0 END) AS offer_generated_no,
+            SUM(CASE WHEN $shortlistStatusExpression = 'selected' AND (LOWER(TRIM(COALESCE(Offer_Letter_Generated, ''))) = 'pending' OR TRIM(COALESCE(Offer_Letter_Generated, '')) = '') THEN 1 ELSE 0 END) AS offer_generated_pending,
+            SUM(CASE WHEN $shortlistStatusExpression = 'selected' AND TRIM(COALESCE(Link_to_Offer_letter, '')) <> '' THEN 1 ELSE 0 END) AS offer_link_with_link,
+            SUM(CASE WHEN $shortlistStatusExpression = 'selected' AND TRIM(COALESCE(Link_to_Offer_letter, '')) = '' THEN 1 ELSE 0 END) AS offer_link_blank,
+            SUM(CASE WHEN $shortlistStatusExpression = 'selected' AND LOWER(TRIM(COALESCE(Link_to_Offer_letter_verified, ''))) = 'yes' THEN 1 ELSE 0 END) AS link_verified_yes,
+            SUM(CASE WHEN $shortlistStatusExpression = 'selected' AND LOWER(TRIM(COALESCE(Link_to_Offer_letter_verified, ''))) = 'no' THEN 1 ELSE 0 END) AS link_verified_no,
+            SUM(CASE WHEN $shortlistStatusExpression = 'selected' AND (LOWER(TRIM(COALESCE(Link_to_Offer_letter_verified, ''))) = 'pending' OR TRIM(COALESCE(Link_to_Offer_letter_verified, '')) = '') THEN 1 ELSE 0 END) AS link_verified_pending,
+            SUM(CASE WHEN $shortlistStatusExpression = 'selected' AND LOWER(TRIM(COALESCE(Confirm_Offer_Letter_Receipt_by_Candidate, ''))) = 'yes' THEN 1 ELSE 0 END) AS receipt_confirmed_yes,
+            SUM(CASE WHEN $shortlistStatusExpression = 'selected' AND LOWER(TRIM(COALESCE(Confirm_Offer_Letter_Receipt_by_Candidate, ''))) = 'no' THEN 1 ELSE 0 END) AS receipt_confirmed_no,
+            SUM(CASE WHEN $shortlistStatusExpression = 'selected' AND (LOWER(TRIM(COALESCE(Confirm_Offer_Letter_Receipt_by_Candidate, ''))) = 'pending' OR TRIM(COALESCE(Confirm_Offer_Letter_Receipt_by_Candidate, '')) = '') THEN 1 ELSE 0 END) AS receipt_confirmed_pending,
+            SUM(CASE WHEN $shortlistStatusExpression = 'selected' AND LOWER(TRIM(COALESCE(Candidate_Joined_Status, ''))) = 'yes' THEN 1 ELSE 0 END) AS joined_yes,
+            SUM(CASE WHEN $shortlistStatusExpression = 'selected' AND LOWER(TRIM(COALESCE(Candidate_Joined_Status, ''))) = 'no' THEN 1 ELSE 0 END) AS joined_no,
+            SUM(CASE WHEN $shortlistStatusExpression = 'selected' AND (LOWER(TRIM(COALESCE(Candidate_Joined_Status, ''))) = 'pending' OR TRIM(COALESCE(Candidate_Joined_Status, '')) = '') THEN 1 ELSE 0 END) AS joined_pending
+        FROM job_fair_result
+        $whereClause
+        GROUP BY job_station
+        ORDER BY job_station ASC";
+
+    $stmt = db()->prepare($sql);
+    $stmt->execute($params);
+
+    return $stmt->fetchAll();
+}
+
 function calculate_consolidated_totals(array $rows, array $keys): array
 {
     $totals = array_fill_keys($keys, 0);
@@ -223,14 +310,15 @@ function calculate_consolidated_totals(array $rows, array $keys): array
     return $totals;
 }
 
-function build_consolidated_detail_conditions(string $section, string $metric, array $filters, array &$params, ?string $jobFairRow): array
+function build_consolidated_detail_conditions(string $section, string $metric, array $filters, array &$params, ?string $jobFairRow, string $groupField = 'job_fair_no'): array
 {
     $conditions = build_common_conditions($filters, $params);
     $selectionStatusExpression = normalized_column('Selection_Status');
     $shortlistStatusExpression = normalized_column('Shortlist_Candidate_Status');
 
     if ($jobFairRow !== null) {
-        $conditions[] = "COALESCE(NULLIF(TRIM(Job_Fair_No), ''), 'Unknown') = ?";
+        $groupColumn = $groupField === 'candidate_job_station' ? 'Candidate_Jobstation' : 'Job_Fair_No';
+        $conditions[] = "COALESCE(NULLIF(TRIM($groupColumn), ''), 'Unknown') = ?";
         $params[] = $jobFairRow;
     }
 
@@ -367,10 +455,10 @@ function build_consolidated_detail_conditions(string $section, string $metric, a
     return $conditions;
 }
 
-function fetch_consolidated_detail_rows(string $section, string $metric, array $filters, ?string $jobFairRow): array
+function fetch_consolidated_detail_rows(string $section, string $metric, array $filters, ?string $jobFairRow, string $groupField = 'job_fair_no'): array
 {
     $params = [];
-    $conditions = build_consolidated_detail_conditions($section, $metric, $filters, $params, $jobFairRow);
+    $conditions = build_consolidated_detail_conditions($section, $metric, $filters, $params, $jobFairRow, $groupField);
     $whereClause = 'WHERE ' . implode(' AND ', $conditions);
 
     $sql = "SELECT

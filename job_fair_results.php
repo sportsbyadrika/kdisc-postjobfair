@@ -112,6 +112,8 @@ $jobFairResultColumnDefinitions = [
     'Confirm_letter_receipt_remarks' => "VARCHAR(1000) AFTER Confirm_Offer_Letter_Receipt_by_Candidate",
     'willing_to_join_remarks' => "VARCHAR(1000) AFTER Willing_to_Join",
     'Shortlist_remarks' => "VARCHAR(1000) AFTER Shortlist_Candidate_Status",
+    'Candidate_Joining_Future_Date' => "DATE AFTER Candidate_Joined_Date",
+    'Candidate_Join_Remarks_Type' => "VARCHAR(255) AFTER Remarks_Candidate_Join",
 ];
 foreach ($jobFairResultColumnDefinitions as $columnName => $columnDefinition) {
     $escapedColumnName = str_replace("'", "\\'", $columnName);
@@ -119,6 +121,12 @@ foreach ($jobFairResultColumnDefinitions as $columnName => $columnDefinition) {
     if ($columnStmt->fetchAll() === []) {
         db()->query("ALTER TABLE job_fair_result ADD COLUMN {$columnName} {$columnDefinition}");
     }
+}
+
+$candidateJoinedStatusColumnRows = db()->query("SHOW COLUMNS FROM job_fair_result LIKE 'Candidate_Joined_Status'")->fetchAll();
+$candidateJoinedStatusType = strtolower((string) ($candidateJoinedStatusColumnRows[0]['Type'] ?? ''));
+if ($candidateJoinedStatusType !== '' && str_contains($candidateJoinedStatusType, "'not applicable'")) {
+    db()->query("ALTER TABLE job_fair_result MODIFY COLUMN Candidate_Joined_Status ENUM('Yes','No','Pending','Future Date')");
 }
 
 db()->query(
@@ -413,7 +421,7 @@ $editableFieldConfig = [
     [
         'panel_label' => 'Selected',
         'field_name' => 'Candidate_Joined_Status',
-        'field_type' => "enum('Yes','No','Pending','Not Applicable')",
+        'field_type' => "enum('Yes','No','Pending','Future Date')",
         'group_label' => 'Candidate Joined details',
         'row_position' => 9,
         'column_position' => 1,
@@ -428,11 +436,27 @@ $editableFieldConfig = [
     ],
     [
         'panel_label' => 'Selected',
+        'field_name' => 'Candidate_Joining_Future_Date',
+        'field_type' => 'Date textbox',
+        'group_label' => 'Candidate Joined details',
+        'row_position' => 9,
+        'column_position' => 3,
+    ],
+    [
+        'panel_label' => 'Selected',
         'field_name' => 'Remarks_Candidate_Join',
         'field_type' => 'varchar',
         'group_label' => 'Candidate Joined details',
         'row_position' => 10,
         'column_position' => 1,
+    ],
+    [
+        'panel_label' => 'Selected',
+        'field_name' => 'Candidate_Join_Remarks_Type',
+        'field_type' => "enum('Not Joined - No Reason Specified','Not Interested - General','Not Interested - Location / Relocation','Not Interested - Salary','Not Interested - Accommodation / Food','Not Interested - Got Another Job','Not Interested - Job Mismatch / Field','Exam / Study Related','Personal Reasons','Offer Letter Issues','Not Responding','Interview / Selection Process','Rejected','NAPS / Apprenticeship Related','Medical / Visa Proceedings','Joined','Joining - Confirmed / Upcoming')",
+        'group_label' => 'Candidate Joined details',
+        'row_position' => 10,
+        'column_position' => 2,
     ],
 ];
 
@@ -444,9 +468,26 @@ foreach ($editableFieldConfig as $config) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $candidateId = (int) ($_POST['candidate_id'] ?? 0);
     $updateSection = trim((string) ($_POST['update_section'] ?? ''));
+    $sourceMode = trim((string) ($_POST['source_mode'] ?? ''));
+    $isDistrictCandidateDataMode = $sourceMode === 'district_candidate_data';
+    $districtCandidateEditableFields = [
+        'Confirm_Offer_Letter_Receipt_by_Candidate',
+        'Confirm_letter_receipt_remarks',
+        'confirmation_date',
+        'Offer_Letter_Join_Date',
+        'Willing_to_Join',
+        'willing_to_join_remarks',
+        'Challenge_Type',
+        'Challenge_to_be_addressed',
+        'Candidate_Joined_Status',
+        'Candidate_Joined_Date',
+        'Candidate_Joining_Future_Date',
+        'Remarks_Candidate_Join',
+        'Candidate_Join_Remarks_Type',
+    ];
 
     if ($candidateId > 0) {
-        if ($updateSection === 'shortlist_round_save') {
+        if ($updateSection === 'shortlist_round_save' && !$isDistrictCandidateDataMode) {
             $roundId = (int) ($_POST['shortlist_round_id'] ?? 0);
             $roundNumber = shortlist_round_post_value('shortlist_round_number');
             $roundScheduledDate = shortlist_round_post_value('shortlist_round_scheduled_date');
@@ -555,6 +596,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (($fieldConfig['field_type'] ?? '') === 'label') {
                 continue;
             }
+            if ($isDistrictCandidateDataMode && !in_array($fieldName, $districtCandidateEditableFields, true)) {
+                continue;
+            }
 
             $panelLabel = (string) ($fieldConfig['panel_label'] ?? '');
             if ($updateSection === 'shortlist_onhold' && $panelLabel !== 'Shortlist/Onhold') {
@@ -588,6 +632,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (($fieldConfig['field_type'] ?? '') === 'label') {
                     continue;
                 }
+                if ($isDistrictCandidateDataMode && !in_array($fieldName, $districtCandidateEditableFields, true)) {
+                    continue;
+                }
                 $panelLabel = (string) ($fieldConfig['panel_label'] ?? '');
                 if ($updateSection === 'shortlist_onhold' && $panelLabel !== 'Shortlist/Onhold') {
                     continue;
@@ -617,7 +664,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        if ($updateSection === 'call_history' || $updateSection === '') {
+        if ($updateSection === 'call_history' || ($updateSection === '' && !$isDistrictCandidateDataMode)) {
             $callHistoryStage = trim((string) ($_POST['call_history_stage'] ?? ''));
             $rowStmt = db()->prepare('SELECT Candidate_Name, Mobile_number, Employer_SPOC_Name, Employer_SPOC_Mobile, Aggregator_SPOC_Name, Aggregator_Spoc_mobile FROM job_fair_result WHERE id = ? LIMIT 1');
             $rowStmt->execute([$candidateId]);

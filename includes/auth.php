@@ -46,9 +46,21 @@ function is_post(): bool
     return ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST';
 }
 
-function esc(string $value): string
+function esc($value): string
 {
-    return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+    if ($value === null) {
+        return '';
+    }
+
+    if (is_array($value)) {
+        return '';
+    }
+
+    if (is_object($value)) {
+        $value = method_exists($value, '__toString') ? (string) $value : '';
+    }
+
+    return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
 }
 
 function login_user(string $mobile, string $password): ?string

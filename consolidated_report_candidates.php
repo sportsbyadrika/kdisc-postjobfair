@@ -12,17 +12,17 @@ function consolidated_detail_request_uri_with_download(): string
     return 'consolidated_report_candidates.php?' . http_build_query($params);
 }
 
-function output_consolidated_candidates_csv(array $rows, string $sectionLabel, string $metricLabel, ?string $jobFairRow): void
+function output_consolidated_candidates_csv(array $rows, string $sectionLabel, string $metricLabel, ?string $groupRow, string $groupLabel): void
 {
     $safeSection = preg_replace('/[^a-z0-9]+/i', '_', strtolower($sectionLabel));
     $safeMetric = preg_replace('/[^a-z0-9]+/i', '_', strtolower($metricLabel));
-    $safeJobFair = preg_replace('/[^a-z0-9]+/i', '_', strtolower($jobFairRow ?? 'all_job_fairs'));
+    $safeGroup = preg_replace('/[^a-z0-9]+/i', '_', strtolower($groupRow ?? ('all_' . $groupLabel)));
 
     $filename = sprintf(
         'consolidated_report_candidates_%s_%s_%s.csv',
         trim((string) $safeSection, '_') ?: 'section',
         trim((string) $safeMetric, '_') ?: 'metric',
-        trim((string) $safeJobFair, '_') ?: 'all_job_fairs'
+        trim((string) $safeGroup, '_') ?: 'all'
     );
 
     header('Content-Type: text/csv; charset=UTF-8');
@@ -51,6 +51,8 @@ $filters = build_consolidated_filters();
 $section = trim((string) ($_GET['section'] ?? 'selected'));
 $metric = trim((string) ($_GET['metric'] ?? 'total_selected_candidate'));
 $jobFairRow = trim((string) ($_GET['job_fair_row'] ?? ''));
+$groupRow = trim((string) ($_GET['group_row'] ?? ''));
+$groupField = trim((string) ($_GET['group_field'] ?? 'job_fair_no'));
 $downloadCsv = (($_GET['download'] ?? '') === 'csv');
 
 if (!array_key_exists($section, CONSOLIDATED_SECTION_LABELS)) {
@@ -63,13 +65,18 @@ if (!array_key_exists($metric, $sectionMetrics)) {
     $metric = $defaultMetric;
 }
 
-$jobFairFilter = $jobFairRow !== '' ? $jobFairRow : null;
-$rows = fetch_consolidated_detail_rows($section, $metric, $filters, $jobFairFilter);
+$validGroupField = $groupField === 'candidate_job_station' ? 'candidate_job_station' : 'job_fair_no';
+$groupFilterValue = $groupRow !== '' ? $groupRow : $jobFairRow;
+$groupFilter = $groupFilterValue !== '' ? $groupFilterValue : null;
+$groupLabel = $validGroupField === 'candidate_job_station' ? 'candidate job stations' : 'job fairs';
+$groupTitle = $validGroupField === 'candidate_job_station' ? 'Candidate Job Station' : 'Job Fair No';
+
+$rows = fetch_consolidated_detail_rows($section, $metric, $filters, $groupFilter, $validGroupField);
 $sectionLabel = CONSOLIDATED_SECTION_LABELS[$section];
 $metricLabel = $sectionMetrics[$metric];
 
 if ($downloadCsv) {
-    output_consolidated_candidates_csv($rows, $sectionLabel, $metricLabel, $jobFairFilter);
+    output_consolidated_candidates_csv($rows, $sectionLabel, $metricLabel, $groupFilter, $groupLabel);
     exit;
 }
 
@@ -80,7 +87,7 @@ render_header('Consolidated Report Candidates', ['show_navigation' => false, 'ma
     <div>
         <p class="text-muted mb-1"><strong>Section:</strong> <?= esc($sectionLabel) ?></p>
         <p class="text-muted mb-1"><strong>Metric:</strong> <?= esc($metricLabel) ?></p>
-        <p class="text-muted mb-0"><strong>Job Fair No:</strong> <?= esc($jobFairFilter ?? 'All filtered job fairs') ?></p>
+        <p class="text-muted mb-0"><strong><?= esc($groupTitle) ?>:</strong> <?= esc($groupFilter ?? ('All filtered ' . $groupLabel)) ?></p>
     </div>
     <a class="btn btn-success" href="<?= esc(consolidated_detail_request_uri_with_download()) ?>">Download CSV</a>
 </div>
