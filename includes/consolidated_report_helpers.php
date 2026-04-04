@@ -483,6 +483,7 @@ function fetch_shortlisted_onhold_joined_status_call_stage_pivot_report(array $f
     $selectedCondition = "$selectionStatusExpression = 'selected'";
     $convertedSelectedCondition = "$selectionStatusExpression IN ('shortlisted', 'onhold') AND $shortlistStatusExpression = 'selected'";
     $eligibleCondition = "($selectedCondition OR $convertedSelectedCondition)";
+    $conditions[] = $eligibleCondition;
 
     if ($filters['selection_status'] !== '') {
         $conditions[] = "$selectionStatusExpression = ?";
