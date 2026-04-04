@@ -182,7 +182,7 @@ function fetch_shortlisted_onhold_report(array $filters): array
             COUNT(*) AS total_shortlisted_onhold_candidate,
             SUM(CASE WHEN $shortlistStatusExpression = 'shortlisted' THEN 1 ELSE 0 END) AS shortlist_status_shortlisted,
             SUM(CASE WHEN $shortlistStatusExpression = 'selected' THEN 1 ELSE 0 END) AS shortlist_status_selected,
-            SUM(CASE WHEN ($selectionStatusExpression = 'selected' AND $categoryExpression IN ('k-disc-rtd', 'rtd')) OR ($shortlistStatusExpression = 'selected' AND $categoryExpression IN ('k-disc-rtd', 'rtd')) THEN 1 ELSE 0 END) AS shortlist_status_rtd_jobs,
+            SUM(CASE WHEN $selectionStatusExpression IN ('shortlisted', 'onhold') AND $categoryExpression IN ('k-disc-rtd', 'rtd') THEN 1 ELSE 0 END) AS shortlist_status_rtd_jobs,
             SUM(CASE WHEN $shortlistStatusExpression IN ('rejected', 'candidatenotinterested') THEN 1 ELSE 0 END) AS shortlist_status_rejected,
             SUM(CASE WHEN $shortlistStatusExpression IN ('onhold', '', 'shortlisted') THEN 1 ELSE 0 END) AS shortlist_status_onhold,
             SUM(CASE WHEN $shortlistStatusExpression = 'selected' AND LOWER(TRIM(COALESCE(Offer_Letter_Generated, ''))) = 'yes' THEN 1 ELSE 0 END) AS offer_generated_yes,
@@ -389,7 +389,8 @@ function build_consolidated_detail_conditions(string $section, string $metric, a
             break;
         case 'shortlist_status_rtd_jobs':
             $categoryExpression = normalized_column('Category');
-            $conditions[] = "(($selectionStatusExpression = 'selected' AND $categoryExpression IN ('k-disc-rtd', 'rtd')) OR ($shortlistStatusExpression = 'selected' AND $categoryExpression IN ('k-disc-rtd', 'rtd')))";
+            $conditions[] = "$selectionStatusExpression IN ('shortlisted', 'onhold')";
+            $conditions[] = "$categoryExpression IN ('k-disc-rtd', 'rtd')";
             break;
         case 'shortlist_status_onhold':
             $conditions[] = "$shortlistStatusExpression IN ('onhold', '', 'shortlisted')";
