@@ -554,7 +554,8 @@ render_header('Consolidated report', ['main_container_class' => 'container-fluid
                 <thead>
                 <tr>
                     <th rowspan="2">Job Fair No</th>
-                    <th rowspan="2">Total Shortlisted/Onhold Candidate count</th>
+                    <th rowspan="2">Selected count</th>
+                    <th rowspan="2">Shortlisted/Onhold converted Selected count</th>
                     <th rowspan="2">Candidate Joined Status count (other than Yes/No)</th>
                     <?php if ($joinedStatusCallStagePivotStages === []): ?>
                         <th rowspan="2">Call History Stage based pivot report</th>
@@ -570,21 +571,24 @@ render_header('Consolidated report', ['main_container_class' => 'container-fluid
                 </thead>
                 <tbody>
                 <?php if ($joinedStatusCallStagePivotRows === []): ?>
-                    <tr><td colspan="<?= $joinedStatusCallStagePivotStages === [] ? 4 : (3 + count($joinedStatusCallStagePivotStages)) ?>" class="text-center text-muted">No data available.</td></tr>
+                    <tr><td colspan="<?= $joinedStatusCallStagePivotStages === [] ? 5 : (4 + count($joinedStatusCallStagePivotStages)) ?>" class="text-center text-muted">No data available.</td></tr>
                 <?php endif; ?>
                 <?php
                 $joinedStatusCallStageTotals = array_fill_keys($joinedStatusCallStagePivotStages, 0);
-                $joinedStatusTotalShortlisted = 0;
+                $joinedStatusSelectedCount = 0;
+                $joinedStatusConvertedSelectedCount = 0;
                 $joinedStatusOtherCount = 0;
                 ?>
                 <?php foreach ($joinedStatusCallStagePivotRows as $row): ?>
                     <?php
-                    $joinedStatusTotalShortlisted += (int) $row['total_shortlisted_onhold_candidate'];
+                    $joinedStatusSelectedCount += (int) $row['selected_candidate_count'];
+                    $joinedStatusConvertedSelectedCount += (int) $row['shortlist_converted_selected_count'];
                     $joinedStatusOtherCount += (int) $row['candidate_joined_status_other_count'];
                     ?>
                     <tr>
                         <td><?= esc($row['job_fair_no']) ?></td>
-                        <td><?= render_metric_link((int) $row['total_shortlisted_onhold_candidate'], 'crm_call_count_joined_status', 'total_shortlisted_onhold_candidate', (string) $row['job_fair_no'], $filters) ?></td>
+                        <td><?= render_metric_link((int) $row['selected_candidate_count'], 'crm_call_count_joined_status', 'selected_candidate_count', (string) $row['job_fair_no'], $filters) ?></td>
+                        <td><?= render_metric_link((int) $row['shortlist_converted_selected_count'], 'crm_call_count_joined_status', 'shortlist_converted_selected_count', (string) $row['job_fair_no'], $filters) ?></td>
                         <td><?= render_metric_link((int) $row['candidate_joined_status_other_count'], 'crm_call_count_joined_status', 'candidate_joined_status_other_count', (string) $row['job_fair_no'], $filters) ?></td>
                         <?php if ($joinedStatusCallStagePivotStages === []): ?>
                             <td class="text-center text-muted">No call history found</td>
@@ -600,7 +604,8 @@ render_header('Consolidated report', ['main_container_class' => 'container-fluid
                 <?php if ($joinedStatusCallStagePivotRows !== []): ?>
                     <tr class="table-secondary fw-semibold">
                         <td>Total</td>
-                        <td><?= render_metric_link($joinedStatusTotalShortlisted, 'crm_call_count_joined_status', 'total_shortlisted_onhold_candidate', null, $filters) ?></td>
+                        <td><?= render_metric_link($joinedStatusSelectedCount, 'crm_call_count_joined_status', 'selected_candidate_count', null, $filters) ?></td>
+                        <td><?= render_metric_link($joinedStatusConvertedSelectedCount, 'crm_call_count_joined_status', 'shortlist_converted_selected_count', null, $filters) ?></td>
                         <td><?= render_metric_link($joinedStatusOtherCount, 'crm_call_count_joined_status', 'candidate_joined_status_other_count', null, $filters) ?></td>
                         <?php foreach ($joinedStatusCallStagePivotStages as $stageLabel): ?>
                             <td><?= render_metric_link((int) $joinedStatusCallStageTotals[$stageLabel], 'crm_call_count_joined_status', 'call_stage_count_joined_other', null, $filters, ['call_stage' => $stageLabel]) ?></td>

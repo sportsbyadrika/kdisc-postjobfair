@@ -99,7 +99,8 @@ const CONSOLIDATED_METRIC_LABELS = [
         'call_stage_count' => 'Call stage count',
     ],
     'crm_call_count_joined_status' => [
-        'total_shortlisted_onhold_candidate' => 'Total Shortlisted/Onhold Candidate count',
+        'selected_candidate_count' => 'Selected count',
+        'shortlist_converted_selected_count' => 'Shortlisted/Onhold converted Selected count',
         'candidate_joined_status_other_count' => 'Candidate Joined Status count (other than Yes/No)',
         'call_stage_count_joined_other' => 'Call stage count',
     ],
@@ -477,8 +478,12 @@ function fetch_shortlisted_onhold_joined_status_call_stage_pivot_report(array $f
     $params = [];
     $conditions = build_common_conditions($filters, $params);
     $selectionStatusExpression = normalized_column('jfr.Selection_Status');
+    $shortlistStatusExpression = normalized_column('jfr.Shortlist_Candidate_Status');
     $joinedStatusExpression = normalized_column('jfr.Candidate_Joined_Status');
-    $conditions[] = "$selectionStatusExpression IN ('shortlisted', 'onhold')";
+    $selectedCondition = "$selectionStatusExpression = 'selected'";
+    $convertedSelectedCondition = "$selectionStatusExpression IN ('shortlisted', 'onhold') AND $shortlistStatusExpression = 'selected'";
+    $eligibleCondition = "($selectedCondition OR $convertedSelectedCondition)";
+    $conditions[] = $eligibleCondition;
 
     if ($filters['selection_status'] !== '') {
         $conditions[] = "$selectionStatusExpression = ?";
@@ -500,8 +505,9 @@ function fetch_shortlisted_onhold_joined_status_call_stage_pivot_report(array $f
 
     $baseSql = "SELECT
             COALESCE(NULLIF(TRIM(jfr.Job_Fair_No), ''), 'Unknown') AS job_fair_no,
-            COUNT(*) AS total_shortlisted_onhold_candidate,
-            SUM(CASE WHEN $joinedOtherCondition THEN 1 ELSE 0 END) AS candidate_joined_status_other_count
+            SUM(CASE WHEN $selectedCondition THEN 1 ELSE 0 END) AS selected_candidate_count,
+            SUM(CASE WHEN $convertedSelectedCondition THEN 1 ELSE 0 END) AS shortlist_converted_selected_count,
+            SUM(CASE WHEN $eligibleCondition AND $joinedOtherCondition THEN 1 ELSE 0 END) AS candidate_joined_status_other_count
         FROM job_fair_result jfr
         $whereClause
         GROUP BY job_fair_no
@@ -717,16 +723,23 @@ function build_consolidated_detail_conditions(string $section, string $metric, a
     }
 
     if ($section === 'shortlisted_rounds_pending' || $section === 'shortlisted_rounds_selected' || $section === 'crm_call_count_pending' || $section === 'crm_call_count_joined_status') {
-        $conditions[] = "$selectionStatusExpression IN ('shortlisted', 'onhold')";
+        $categoryExpression = normalized_column('Category');
+        $pendingCondition = "$shortlistStatusExpression IN ('onhold', '', 'shortlisted')";
+        $selectedCondition = "$shortlistStatusExpression = 'selected'";
+
+        if ($section === 'crm_call_count_joined_status') {
+            $selectedStatusCondition = "$selectionStatusExpression = 'selected'";
+            $convertedSelectedCondition = "$selectionStatusExpression IN ('shortlisted', 'onhold') AND $selectedCondition";
+            $conditions[] = "($selectedStatusCondition OR $convertedSelectedCondition)";
+        } else {
+            $conditions[] = "$selectionStatusExpression IN ('shortlisted', 'onhold')";
+        }
 
         if ($filters['selection_status'] !== '') {
             $conditions[] = "$selectionStatusExpression = ?";
             $params[] = strtolower(str_replace(' ', '', $filters['selection_status']));
         }
 
-        $categoryExpression = normalized_column('Category');
-        $pendingCondition = "$shortlistStatusExpression IN ('onhold', '', 'shortlisted')";
-        $selectedCondition = "$shortlistStatusExpression = 'selected'";
         $isPendingSection = $section !== 'shortlisted_rounds_selected';
 
         if ($metric === 'call_stage_count') {
@@ -807,6 +820,15 @@ function build_consolidated_detail_conditions(string $section, string $metric, a
         if ($metric === 'candidate_joined_status_other_count') {
             $joinedStatusExpression = normalized_column('Candidate_Joined_Status');
             $conditions[] = "($joinedStatusExpression NOT IN ('yes', 'no') OR $joinedStatusExpression = '')";
+        }
+
+        if ($section === 'crm_call_count_joined_status' && $metric === 'shortlist_converted_selected_count') {
+            $conditions[] = "$selectionStatusExpression IN ('shortlisted', 'onhold')";
+            $conditions[] = $selectedCondition;
+        }
+
+        if ($section === 'crm_call_count_joined_status' && $metric === 'selected_candidate_count') {
+            $conditions[] = "$selectionStatusExpression = 'selected'";
         }
 
         return $conditions;
