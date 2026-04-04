@@ -12,7 +12,7 @@ function consolidated_detail_request_uri_with_download(): string
     return 'consolidated_report_candidates.php?' . http_build_query($params);
 }
 
-function output_consolidated_candidates_csv(array $rows, string $sectionLabel, string $metricLabel, ?string $groupRow, string $groupLabel): void
+function output_consolidated_candidates_csv(array $rows, string $sectionLabel, string $metricLabel, ?string $groupRow, string $groupLabel, array $columns): void
 {
     $safeSection = preg_replace('/[^a-z0-9]+/i', '_', strtolower($sectionLabel));
     $safeMetric = preg_replace('/[^a-z0-9]+/i', '_', strtolower($metricLabel));
@@ -33,11 +33,11 @@ function output_consolidated_candidates_csv(array $rows, string $sectionLabel, s
         return;
     }
 
-    fputcsv($output, array_keys(CONSOLIDATED_CANDIDATE_COLUMNS));
+    fputcsv($output, array_keys($columns));
 
     foreach ($rows as $row) {
         $csvRow = [];
-        foreach (CONSOLIDATED_CANDIDATE_COLUMNS as $key) {
+        foreach ($columns as $key) {
             $csvRow[] = (string) ($row[$key] ?? '');
         }
 
@@ -77,9 +77,10 @@ $groupTitle = $validGroupField === 'candidate_job_station' ? 'Candidate Job Stat
 $rows = fetch_consolidated_detail_rows($section, $metric, $filters, $groupFilter, $validGroupField);
 $sectionLabel = CONSOLIDATED_SECTION_LABELS[$section];
 $metricLabel = $sectionMetrics[$metric];
+$columns = consolidated_detail_columns($section);
 
 if ($downloadCsv) {
-    output_consolidated_candidates_csv($rows, $sectionLabel, $metricLabel, $groupFilter, $groupLabel);
+    output_consolidated_candidates_csv($rows, $sectionLabel, $metricLabel, $groupFilter, $groupLabel, $columns);
     exit;
 }
 
@@ -101,7 +102,7 @@ render_header('Consolidated Report Candidates', ['show_navigation' => false, 'ma
             <table class="table table-bordered table-striped align-middle mb-0">
                 <thead>
                 <tr>
-                    <?php foreach (array_keys(CONSOLIDATED_CANDIDATE_COLUMNS) as $columnLabel): ?>
+                    <?php foreach (array_keys($columns) as $columnLabel): ?>
                         <th><?= esc($columnLabel) ?></th>
                     <?php endforeach; ?>
                 </tr>
@@ -109,12 +110,12 @@ render_header('Consolidated Report Candidates', ['show_navigation' => false, 'ma
                 <tbody>
                 <?php if ($rows === []): ?>
                     <tr>
-                        <td colspan="<?= count(CONSOLIDATED_CANDIDATE_COLUMNS) ?>" class="text-center text-muted">No candidates found.</td>
+                        <td colspan="<?= count($columns) ?>" class="text-center text-muted">No candidates found.</td>
                     </tr>
                 <?php endif; ?>
                 <?php foreach ($rows as $row): ?>
                     <tr>
-                        <?php foreach (CONSOLIDATED_CANDIDATE_COLUMNS as $key): ?>
+                        <?php foreach ($columns as $key): ?>
                             <td><?= esc((string) ($row[$key] ?? '')) ?></td>
                         <?php endforeach; ?>
                     </tr>
