@@ -855,7 +855,7 @@ function fetch_consolidated_call_history_detail_rows(string $section, string $me
             COALESCE(TRIM(ch.call_mobile), '') AS call_mobile
         FROM job_fair_result jfr
         INNER JOIN candidate_call_history ch ON ch.candidate_id = jfr.id
-        LEFT JOIN call_purpose cp ON cp.id = ch.purpose_id
+        LEFT JOIN candidate_call_purpose cp ON cp.id = ch.purpose_id
         $whereClause
         " . ($callStage !== '' ? " AND COALESCE(NULLIF(TRIM(ch.stage), ''), 'Unknown') = ?" : '') . "
         ORDER BY job_fair_no ASC, jfr.Employer_Name ASC, jfr.Candidate_Name ASC, ch.call_datetime DESC, ch.id DESC";
