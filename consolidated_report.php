@@ -80,7 +80,7 @@ $shortlistedTotals = calculate_consolidated_totals($shortlistedRows, [
 ]);
 $roundPivotReport = fetch_shortlisted_onhold_round_pivot_report($filters);
 $roundPivotRows = $roundPivotReport['rows'];
-$roundPivotDates = $roundPivotReport['dates'];
+$roundPivotRounds = $roundPivotReport['round_numbers'];
 $roundPivotStatusLabels = $roundPivotReport['status_labels'];
 
 render_header('Consolidated report', ['main_container_class' => 'container-fluid']);
@@ -316,16 +316,16 @@ render_header('Consolidated report', ['main_container_class' => 'container-fluid
                     <th rowspan="2">Job Fair No</th>
                     <th rowspan="2">Total Shortlisted/Onhold Candidate count</th>
                     <th rowspan="2">Shortlisted Conversion pending count</th>
-                    <?php if ($roundPivotDates === []): ?>
+                    <?php if ($roundPivotRounds === []): ?>
                         <th rowspan="2">Round based pivot report</th>
                     <?php else: ?>
-                        <?php foreach ($roundPivotDates as $roundDate): ?>
-                            <th colspan="<?= count($roundPivotStatusLabels) ?>" class="text-center"><?= esc($roundDate) ?></th>
+                        <?php foreach ($roundPivotRounds as $roundNumber): ?>
+                            <th colspan="<?= count($roundPivotStatusLabels) ?>" class="text-center">Round <?= esc($roundNumber) ?></th>
                         <?php endforeach; ?>
                     <?php endif; ?>
                 </tr>
                 <tr>
-                    <?php foreach ($roundPivotDates as $roundDate): ?>
+                    <?php foreach ($roundPivotRounds as $roundNumber): ?>
                         <?php foreach ($roundPivotStatusLabels as $statusLabel): ?>
                             <th><?= esc($statusLabel) ?></th>
                         <?php endforeach; ?>
@@ -334,13 +334,13 @@ render_header('Consolidated report', ['main_container_class' => 'container-fluid
                 </thead>
                 <tbody>
                 <?php if ($roundPivotRows === []): ?>
-                    <tr><td colspan="<?= $roundPivotDates === [] ? 4 : (3 + (count($roundPivotDates) * count($roundPivotStatusLabels))) ?>" class="text-center text-muted">No data available.</td></tr>
+                    <tr><td colspan="<?= $roundPivotRounds === [] ? 4 : (3 + (count($roundPivotRounds) * count($roundPivotStatusLabels))) ?>" class="text-center text-muted">No data available.</td></tr>
                 <?php endif; ?>
                 <?php
                 $pivotTotals = [];
-                foreach ($roundPivotDates as $roundDate) {
+                foreach ($roundPivotRounds as $roundNumber) {
                     foreach ($roundPivotStatusLabels as $statusLabel) {
-                        $pivotTotals[$roundDate][$statusLabel] = 0;
+                        $pivotTotals[$roundNumber][$statusLabel] = 0;
                     }
                 }
                 $totalShortlisted = 0;
@@ -355,13 +355,13 @@ render_header('Consolidated report', ['main_container_class' => 'container-fluid
                         <td><?= esc($row['job_fair_no']) ?></td>
                         <td><?= (int) $row['total_shortlisted_onhold_candidate'] ?></td>
                         <td><?= (int) $row['shortlist_conversion_pending_count'] ?></td>
-                        <?php if ($roundPivotDates === []): ?>
+                        <?php if ($roundPivotRounds === []): ?>
                             <td class="text-center text-muted">No rounds found</td>
                         <?php else: ?>
-                            <?php foreach ($roundPivotDates as $roundDate): ?>
+                            <?php foreach ($roundPivotRounds as $roundNumber): ?>
                                 <?php foreach ($roundPivotStatusLabels as $statusLabel): ?>
-                                    <?php $count = (int) ($row['pivot'][$roundDate][$statusLabel] ?? 0); ?>
-                                    <?php $pivotTotals[$roundDate][$statusLabel] += $count; ?>
+                                    <?php $count = (int) ($row['pivot'][$roundNumber][$statusLabel] ?? 0); ?>
+                                    <?php $pivotTotals[$roundNumber][$statusLabel] += $count; ?>
                                     <td><?= $count ?></td>
                                 <?php endforeach; ?>
                             <?php endforeach; ?>
@@ -373,9 +373,9 @@ render_header('Consolidated report', ['main_container_class' => 'container-fluid
                         <td>Total</td>
                         <td><?= $totalShortlisted ?></td>
                         <td><?= $totalPending ?></td>
-                        <?php foreach ($roundPivotDates as $roundDate): ?>
+                        <?php foreach ($roundPivotRounds as $roundNumber): ?>
                             <?php foreach ($roundPivotStatusLabels as $statusLabel): ?>
-                                <td><?= (int) $pivotTotals[$roundDate][$statusLabel] ?></td>
+                                <td><?= (int) $pivotTotals[$roundNumber][$statusLabel] ?></td>
                             <?php endforeach; ?>
                         <?php endforeach; ?>
                     </tr>
