@@ -61,6 +61,7 @@ $shortlistedRows = fetch_shortlisted_onhold_report($filters);
 $shortlistedTotals = calculate_consolidated_totals($shortlistedRows, [
     'total_shortlisted_onhold_candidate',
     'shortlist_status_selected',
+    'shortlist_status_rtd_jobs',
     'shortlist_status_rejected',
     'shortlist_status_onhold',
     'offer_generated_yes',
@@ -218,7 +219,7 @@ render_header('Consolidated report', ['main_container_class' => 'container-fluid
                 <tr>
                     <th rowspan="2">Job Fair No</th>
                     <th rowspan="2">Total Shortlisted/Onhold Candidate</th>
-                    <th colspan="3" class="text-center">Shortlisted Conversion</th>
+                    <th colspan="4" class="text-center">Shortlisted Conversion</th>
                     <th colspan="2" class="text-center">Offer Letter Generated</th>
                     <th colspan="2" class="text-center">Offer Letter Softcopy</th>
                     <th colspan="3" class="text-center">Softcopy Verified</th>
@@ -227,6 +228,7 @@ render_header('Consolidated report', ['main_container_class' => 'container-fluid
                 </tr>
                 <tr>
                     <th>Selected</th>
+                    <th>RTD Jobs</th>
                     <th>Rejected</th>
                     <th>Pending</th>
                     <th>Yes</th>
@@ -246,13 +248,14 @@ render_header('Consolidated report', ['main_container_class' => 'container-fluid
                 </thead>
                 <tbody>
                 <?php if ($shortlistedRows === []): ?>
-                    <tr><td colspan="18" class="text-center text-muted">No data available.</td></tr>
+                    <tr><td colspan="19" class="text-center text-muted">No data available.</td></tr>
                 <?php endif; ?>
                 <?php foreach ($shortlistedRows as $row): ?>
                     <tr>
                         <td><?= esc($row['job_fair_no']) ?></td>
                         <td><?= render_metric_link((int) $row['total_shortlisted_onhold_candidate'], 'shortlisted', 'total_shortlisted_onhold_candidate', (string) $row['job_fair_no'], $filters) ?></td>
                         <td><?= render_metric_link((int) $row['shortlist_status_selected'], 'shortlisted', 'shortlist_status_selected', (string) $row['job_fair_no'], $filters) ?></td>
+                        <td><?= render_metric_link((int) $row['shortlist_status_rtd_jobs'], 'shortlisted', 'shortlist_status_rtd_jobs', (string) $row['job_fair_no'], $filters) ?></td>
                         <td><?= render_metric_link((int) $row['shortlist_status_rejected'], 'shortlisted', 'shortlist_status_rejected', (string) $row['job_fair_no'], $filters) ?></td>
                         <td><?= render_metric_link((int) $row['shortlist_status_onhold'], 'shortlisted', 'shortlist_status_onhold', (string) $row['job_fair_no'], $filters) ?></td>
                         <td><?= render_metric_link((int) $row['offer_generated_yes'], 'shortlisted', 'offer_generated_yes', (string) $row['job_fair_no'], $filters) ?></td>
@@ -275,6 +278,7 @@ render_header('Consolidated report', ['main_container_class' => 'container-fluid
                         <td>Total</td>
                         <td><?= render_metric_link($shortlistedTotals['total_shortlisted_onhold_candidate'], 'shortlisted', 'total_shortlisted_onhold_candidate', null, $filters) ?></td>
                         <td><?= render_metric_link($shortlistedTotals['shortlist_status_selected'], 'shortlisted', 'shortlist_status_selected', null, $filters) ?></td>
+                        <td><?= render_metric_link($shortlistedTotals['shortlist_status_rtd_jobs'], 'shortlisted', 'shortlist_status_rtd_jobs', null, $filters) ?></td>
                         <td><?= render_metric_link($shortlistedTotals['shortlist_status_rejected'], 'shortlisted', 'shortlist_status_rejected', null, $filters) ?></td>
                         <td><?= render_metric_link($shortlistedTotals['shortlist_status_onhold'], 'shortlisted', 'shortlist_status_onhold', null, $filters) ?></td>
                         <td><?= render_metric_link($shortlistedTotals['offer_generated_yes'], 'shortlisted', 'offer_generated_yes', null, $filters) ?></td>
