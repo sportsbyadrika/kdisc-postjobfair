@@ -136,6 +136,19 @@ function normalized_column(string $column): string
     return "LOWER(REPLACE(TRIM(COALESCE($column, '')), ' ', ''))";
 }
 
+function job_fair_result_has_id_column(): bool
+{
+    static $hasIdColumn = null;
+    if ($hasIdColumn !== null) {
+        return $hasIdColumn;
+    }
+
+    $columnRows = db()->query("SHOW COLUMNS FROM job_fair_result LIKE 'id'")->fetchAll();
+    $hasIdColumn = $columnRows !== [];
+
+    return $hasIdColumn;
+}
+
 function build_common_conditions(array $filters, array &$params): array
 {
     $conditions = [];
@@ -629,7 +642,7 @@ function build_consolidated_detail_conditions(string $section, string $metric, a
             $conditions[] = $pendingCondition;
             $conditions[] = "$categoryExpression NOT IN ('k-disc-rtd', 'rtd')";
             $callStage = trim((string) ($filters['call_stage'] ?? ''));
-            if ($callStage !== '') {
+            if ($callStage !== '' && job_fair_result_has_id_column()) {
                 $conditions[] = "EXISTS (
                     SELECT 1
                     FROM candidate_call_history cch
@@ -649,7 +662,12 @@ function build_consolidated_detail_conditions(string $section, string $metric, a
             }
             $roundNumber = trim((string) ($filters['round_number'] ?? ''));
             $roundSelectionStatus = trim((string) ($filters['round_selection_status'] ?? ''));
-            if ($roundNumber !== '' && ctype_digit($roundNumber) && $roundSelectionStatus !== '') {
+            if (
+                $roundNumber !== ''
+                && ctype_digit($roundNumber)
+                && $roundSelectionStatus !== ''
+                && job_fair_result_has_id_column()
+            ) {
                 $conditions[] = "EXISTS (
                     SELECT 1
                     FROM (
