@@ -244,6 +244,13 @@ function fetch_shortlisted_onhold_round_pivot_report(array $filters, string $con
     $pendingCondition = "$shortlistStatusExpression IN ('onhold', '', 'shortlisted') AND $categoryExpression NOT IN ('k-disc-rtd', 'rtd')";
     $selectedCondition = "$shortlistStatusExpression = 'selected'";
     $conversionCondition = $conversionType === 'selected' ? $selectedCondition : $pendingCondition;
+    $pendingCountExpression = "(
+            SUM(CASE WHEN $shortlistStatusExpression IN ('onhold', '', 'shortlisted') THEN 1 ELSE 0 END)
+            - SUM(CASE WHEN $selectionStatusExpression IN ('shortlisted', 'onhold') AND $categoryExpression IN ('k-disc-rtd', 'rtd') THEN 1 ELSE 0 END)
+        )";
+    $conversionCountExpression = $conversionType === 'selected'
+        ? "SUM(CASE WHEN $selectedCondition THEN 1 ELSE 0 END)"
+        : $pendingCountExpression;
     $whereClause = 'WHERE ' . implode(' AND ', $conditions);
 
     $baseParams = $params;
@@ -260,7 +267,7 @@ function fetch_shortlisted_onhold_round_pivot_report(array $filters, string $con
     $latestRoundSql = "SELECT
             COALESCE(NULLIF(TRIM(jfr.Job_Fair_No), ''), 'Unknown') AS job_fair_no,
             COUNT(*) AS total_shortlisted_onhold_candidate,
-            SUM(CASE WHEN $conversionCondition THEN 1 ELSE 0 END) AS shortlist_conversion_count
+            $conversionCountExpression AS shortlist_conversion_count
         FROM job_fair_result jfr
         $whereClause
         GROUP BY job_fair_no
