@@ -159,7 +159,8 @@ db()->query(
         round_type ENUM('Interview','Test','Other') NOT NULL,
         round_status ENUM('Pending at Employer','Pending at Candidate','Ongoing','Completed') NOT NULL,
         round_remarks ENUM('Not Scheduled','Candidate not informed','Candidate not interested','Not applicable') DEFAULT NULL,
-        round_selection_status ENUM('Selected','Rejected','Candidate not Attended','Candidate Not Willing') NOT NULL,
+        round_selection_status ENUM('Selected','Rejected','Pending','Ongoing','Candidate not Attended','Candidate Not Willing') NOT NULL,
+        additional_remarks TEXT DEFAULT NULL,
         created_by INT DEFAULT NULL,
         updated_by INT DEFAULT NULL,
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -179,10 +180,32 @@ db()->query(
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
 );
 
+$shortlistRoundTableColumns = db()->query('SHOW COLUMNS FROM candidate_shortlist_rounds')->fetchAll();
+$shortlistRoundColumnMap = [];
+foreach ($shortlistRoundTableColumns as $column) {
+    $columnName = (string) ($column['Field'] ?? '');
+    if ($columnName !== '') {
+        $shortlistRoundColumnMap[$columnName] = $column;
+    }
+}
+if (!isset($shortlistRoundColumnMap['additional_remarks'])) {
+    db()->query('ALTER TABLE candidate_shortlist_rounds ADD COLUMN additional_remarks TEXT DEFAULT NULL AFTER round_selection_status');
+}
+$shortlistRoundSelectionStatusType = strtolower((string) ($shortlistRoundColumnMap['round_selection_status']['Type'] ?? ''));
+if (
+    $shortlistRoundSelectionStatusType !== ''
+    && (
+        !str_contains($shortlistRoundSelectionStatusType, "'pending'")
+        || !str_contains($shortlistRoundSelectionStatusType, "'ongoing'")
+    )
+) {
+    db()->query("ALTER TABLE candidate_shortlist_rounds MODIFY COLUMN round_selection_status ENUM('Selected','Rejected','Pending','Ongoing','Candidate not Attended','Candidate Not Willing') NOT NULL");
+}
+
 $shortlistRoundTypeOptions = ['Interview', 'Test', 'Other'];
 $shortlistRoundStatusOptions = ['Pending at Employer', 'Pending at Candidate', 'Ongoing', 'Completed'];
 $shortlistRoundRemarksOptions = ['Not Scheduled', 'Candidate not informed', 'Candidate not interested', 'Not applicable'];
-$shortlistRoundSelectionStatusOptions = ['Selected', 'Rejected', 'Candidate not Attended', 'Candidate Not Willing'];
+$shortlistRoundSelectionStatusOptions = ['Selected', 'Rejected', 'Pending', 'Ongoing', 'Candidate not Attended', 'Candidate Not Willing'];
 
 function log_candidate_manage_activity(int $candidateId, string $section, string $type, string $details, ?int $userId): void
 {
@@ -494,6 +517,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $roundType = shortlist_round_post_value('shortlist_round_type');
             $roundStatus = shortlist_round_post_value('shortlist_round_status');
             $roundRemarks = shortlist_round_post_value('shortlist_round_remarks');
+            $additionalRemarks = shortlist_round_post_value('shortlist_round_additional_remarks');
             $roundSelectionStatus = shortlist_round_post_value('shortlist_round_selection_status');
 
             $roundNumberValue = $roundNumber !== null && ctype_digit($roundNumber) && (int) $roundNumber > 0 ? (int) $roundNumber : null;
@@ -512,7 +536,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($existingRound) {
                         $updateRoundStmt = db()->prepare(
                             'UPDATE candidate_shortlist_rounds
-                             SET round_number = ?, round_scheduled_date = ?, round_type = ?, round_status = ?, round_remarks = ?, round_selection_status = ?, updated_by = ?
+                             SET round_number = ?, round_scheduled_date = ?, round_type = ?, round_status = ?, round_remarks = ?, round_selection_status = ?, additional_remarks = ?, updated_by = ?
                              WHERE id = ? AND candidate_id = ?'
                         );
                         $updateRoundStmt->execute([
@@ -522,6 +546,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $roundStatus,
                             $roundRemarks,
                             $roundSelectionStatus,
+                            $additionalRemarks,
                             (int) ($user['id'] ?? 0),
                             $roundId,
                             $candidateId,
@@ -535,6 +560,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             'round_status' => ['label' => 'Round status', 'new' => $roundStatus],
                             'round_remarks' => ['label' => 'Round remarks', 'new' => $roundRemarks],
                             'round_selection_status' => ['label' => 'Selection status', 'new' => $roundSelectionStatus],
+                            'additional_remarks' => ['label' => 'Remarks', 'new' => $additionalRemarks],
                         ];
                         foreach ($roundFields as $field => $fieldMeta) {
                             $oldValue = isset($existingRound[$field]) ? (string) $existingRound[$field] : null;
@@ -559,7 +585,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 } else {
                     $insertRoundStmt = db()->prepare(
-                        'INSERT INTO candidate_shortlist_rounds (candidate_id, round_number, round_scheduled_date, round_type, round_status, round_remarks, round_selection_status, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                        'INSERT INTO candidate_shortlist_rounds (candidate_id, round_number, round_scheduled_date, round_type, round_status, round_remarks, round_selection_status, additional_remarks, created_by, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
                     );
                     $insertRoundStmt->execute([
                         $candidateId,
@@ -569,6 +595,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $roundStatus,
                         $roundRemarks,
                         $roundSelectionStatus,
+                        $additionalRemarks,
                         (int) ($user['id'] ?? 0),
                         (int) ($user['id'] ?? 0),
                     ]);
@@ -582,6 +609,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         . "\nRound type: " . $roundType
                         . "\nRound status: " . $roundStatus
                         . "\nRound remarks: " . shortlist_round_value_for_log($roundRemarks)
+                        . "\nRemarks: " . shortlist_round_value_for_log($additionalRemarks)
                         . "\nSelection status: " . $roundSelectionStatus,
                         (int) ($user['id'] ?? 0)
                     );
@@ -782,7 +810,7 @@ if (isset($_GET['candidate_call_history'])) {
 if (isset($_GET['candidate_shortlist_rounds'])) {
     $candidateId = (int) ($_GET['candidate_shortlist_rounds'] ?? 0);
     $roundStmt = db()->prepare(
-        'SELECT id, round_number, round_scheduled_date, round_type, round_status, round_remarks, round_selection_status, created_at, updated_at
+        'SELECT id, round_number, round_scheduled_date, round_type, round_status, round_remarks, round_selection_status, additional_remarks, created_at, updated_at
          FROM candidate_shortlist_rounds
          WHERE candidate_id = ?
          ORDER BY round_number ASC, round_scheduled_date ASC, id ASC'
