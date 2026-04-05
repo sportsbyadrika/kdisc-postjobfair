@@ -258,6 +258,10 @@ function shortlistRoundForm(round = null) {
                         <select class="form-select" name="shortlist_round_remarks">${shortlistRoundSelectOptions(shortlistRoundOptions.round_remarks || [], round?.round_remarks || '')}</select>
                     </div>
                     <div class="col-12 col-md-4">
+                        <label class="form-label">Remarks</label>
+                        <textarea class="form-control" name="shortlist_round_additional_remarks" rows="1">${escapeHtml(round?.additional_remarks || '')}</textarea>
+                    </div>
+                    <div class="col-12 col-md-4">
                         <label class="form-label">Round Selection Status <span class="text-danger">*</span></label>
                         <select class="form-select" name="shortlist_round_selection_status" required>${shortlistRoundSelectOptions(shortlistRoundOptions.round_selection_status || [], round?.round_selection_status || '')}</select>
                     </div>
@@ -274,7 +278,7 @@ function renderShortlistRoundRows(rows) {
     const body = document.getElementById('shortlistRoundBody');
     if (!body) return;
     if (!rows.length) {
-        body.innerHTML = '<tr><td colspan="8" class="text-center text-muted">No shortlist rounds added yet.</td></tr>';
+        body.innerHTML = '<tr><td colspan="9" class="text-center text-muted">No shortlist rounds added yet.</td></tr>';
         return;
     }
     body.innerHTML = rows.map((round, index) => `
@@ -285,6 +289,7 @@ function renderShortlistRoundRows(rows) {
             <td>${escapeHtml(round.round_type || 'N/A')}</td>
             <td>${escapeHtml(round.round_status || 'N/A')}</td>
             <td>${escapeHtml(round.round_remarks || 'N/A')}</td>
+            <td>${escapeHtml(round.additional_remarks || 'N/A')}</td>
             <td>${escapeHtml(round.round_selection_status || 'N/A')}</td>
             <td><button type="button" class="btn btn-outline-primary btn-sm" onclick="editShortlistRound(${Number(round.id)})">Edit</button></td>
         </tr>
@@ -311,6 +316,7 @@ function renderShortlistRoundsSection() {
                                 <th>Round Type</th>
                                 <th>Round Status</th>
                                 <th>Round Remarks</th>
+                                <th>Remarks</th>
                                 <th>Selection Status</th>
                                 <th>Action</th>
                             </tr>
