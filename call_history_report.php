@@ -49,10 +49,20 @@ foreach ($crmMemberRows as $crmMemberRow) {
 }
 
 $selectedMember = trim((string) ($_GET['crm_member'] ?? ''));
+$selectedUserRole = trim((string) ($_GET['user_role'] ?? ''));
 $dateFrom = trim((string) ($_GET['date_from'] ?? ''));
 $dateTo = trim((string) ($_GET['date_to'] ?? ''));
 $hasDateFrom = preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateFrom) === 1;
 $hasDateTo = preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateTo) === 1;
+
+$roleOptions = [
+    'administrator' => 'Administrator',
+    'crm_member' => 'CRM Member',
+    'district_user' => 'District User',
+];
+if (!array_key_exists($selectedUserRole, $roleOptions)) {
+    $selectedUserRole = '';
+}
 
 $viewMode = ($_GET['view'] ?? '') === 'details' ? 'details' : 'summary';
 $selectedMetric = trim((string) ($_GET['metric'] ?? 'total_calls'));
@@ -99,6 +109,10 @@ if ($selectedMember !== '') {
     $baseConditions[] = 'j.CRM_Member = ?';
     $baseParams[] = $selectedMember;
 }
+if ($selectedUserRole !== '') {
+    $baseConditions[] = 'u.role = ?';
+    $baseParams[] = $selectedUserRole;
+}
 if ($hasDateFrom) {
     $baseConditions[] = 'h.call_datetime >= ?';
     $baseParams[] = $dateFrom . ' 00:00:00';
@@ -138,6 +152,7 @@ $summarySql = "
         SUM(CASE WHEN h.call_status = 'Invalid number' THEN 1 ELSE 0 END) AS invalid_number_calls
     FROM candidate_call_history h
     INNER JOIN job_fair_result j ON j.id = h.candidate_id
+    LEFT JOIN users u ON u.name = j.CRM_Member
     LEFT JOIN (
         SELECT
             CRM_Member,
@@ -205,6 +220,7 @@ $detailSql = "
         j.Aggregator
     FROM candidate_call_history h
     INNER JOIN job_fair_result j ON j.id = h.candidate_id
+    LEFT JOIN users u ON u.name = j.CRM_Member
     LEFT JOIN candidate_call_purpose p ON p.id = h.purpose_id
     " . $detailWhereSql . "
     ORDER BY h.call_datetime DESC, h.id DESC";
@@ -218,6 +234,9 @@ if ($hasDateFrom) {
 }
 if ($hasDateTo) {
     $baseQueryParams['date_to'] = $dateTo;
+}
+if ($selectedUserRole !== '') {
+    $baseQueryParams['user_role'] = $selectedUserRole;
 }
 
 $buildReportUrl = static function (array $params) use ($baseQueryParams): string {
@@ -247,10 +266,11 @@ render_header('Call History Report', [
             <div>
                 <div><strong>Metric:</strong> <?= esc((string) $metricConfig[$selectedMetric]['label']) ?></div>
                 <div><strong>User:</strong> <?= $selectedMember !== '' ? esc($selectedMember) : 'All Users' ?></div>
+                <div><strong>User Role:</strong> <?= $selectedUserRole !== '' ? esc((string) ($roleOptions[$selectedUserRole] ?? $selectedUserRole)) : 'All Roles' ?></div>
                 <div><strong>Date Range:</strong> <?= esc($hasDateFrom ? $dateFrom : '-') ?> to <?= esc($hasDateTo ? $dateTo : '-') ?></div>
             </div>
             <div>
-                <a class="btn btn-outline-secondary" href="<?= esc($buildReportUrl(['crm_member' => $selectedMember])) ?>">Back to Summary</a>
+                <a class="btn btn-outline-secondary" href="<?= esc($buildReportUrl(['crm_member' => $selectedMember, 'user_role' => $selectedUserRole])) ?>">Back to Summary</a>
             </div>
         </div>
     </div>
@@ -318,6 +338,17 @@ render_header('Call History Report', [
                     <input type="date" id="date_from" name="date_from" class="form-control" value="<?= esc($hasDateFrom ? $dateFrom : '') ?>">
                 </div>
                 <div class="col-12 col-md-4 col-lg-3">
+                    <label for="user_role" class="form-label">Filter by User role</label>
+                    <select id="user_role" name="user_role" class="form-select">
+                        <option value="">All Roles</option>
+                        <?php foreach ($roleOptions as $roleValue => $roleLabel): ?>
+                            <option value="<?= esc($roleValue) ?>" <?= $selectedUserRole === $roleValue ? 'selected' : '' ?>>
+                                <?= esc($roleLabel) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="col-12 col-md-4 col-lg-3">
                     <label for="date_to" class="form-label">Date to</label>
                     <input type="date" id="date_to" name="date_to" class="form-control" value="<?= esc($hasDateTo ? $dateTo : '') ?>">
                 </div>
@@ -328,6 +359,9 @@ render_header('Call History Report', [
                     $stretchQueryParams = [];
                     if ($selectedMember !== '') {
                         $stretchQueryParams['crm_member'] = $selectedMember;
+                    }
+                    if ($selectedUserRole !== '') {
+                        $stretchQueryParams['user_role'] = $selectedUserRole;
                     }
                     if ($hasDateFrom) {
                         $stretchQueryParams['date_from'] = $dateFrom;
