@@ -29,10 +29,11 @@ if (!$hasPurposeIdColumn) {
 }
 
 $crmMemberRows = db()->query(
-    "SELECT DISTINCT CRM_Member
-     FROM job_fair_result
-     WHERE CRM_Member IS NOT NULL AND TRIM(CRM_Member) <> ''
-     ORDER BY CRM_Member"
+    "SELECT DISTINCT u.name AS CRM_Member
+     FROM candidate_call_history h
+     INNER JOIN users u ON u.id = h.created_by
+     WHERE u.name IS NOT NULL AND TRIM(u.name) <> ''
+     ORDER BY u.name"
 )->fetchAll();
 
 $crmMemberOptions = [];
@@ -103,10 +104,10 @@ if (!isset($metricConfig[$selectedMetric])) {
     $selectedMetric = 'total_calls';
 }
 
-$baseConditions = ["j.CRM_Member IS NOT NULL", "TRIM(j.CRM_Member) <> ''"];
+$baseConditions = ["u.name IS NOT NULL", "TRIM(u.name) <> ''"];
 $baseParams = [];
 if ($selectedMember !== '') {
-    $baseConditions[] = 'j.CRM_Member = ?';
+    $baseConditions[] = 'u.name = ?';
     $baseParams[] = $selectedMember;
 }
 if ($selectedUserRole !== '') {
@@ -125,7 +126,7 @@ $whereSql = ' WHERE ' . implode(' AND ', $baseConditions);
 
 $summarySql = "
     SELECT
-        j.CRM_Member,
+        u.name AS CRM_Member,
         COUNT(h.id) AS total_calls,
         SUM(CASE WHEN h.stage = 'Employer Connect' THEN 1 ELSE 0 END) AS employer_connect_calls,
         COUNT(DISTINCT CASE
@@ -151,6 +152,7 @@ $summarySql = "
         SUM(CASE WHEN h.call_status = 'Not attended' THEN 1 ELSE 0 END) AS not_attended_calls,
         SUM(CASE WHEN h.call_status = 'Invalid number' THEN 1 ELSE 0 END) AS invalid_number_calls
     FROM candidate_call_history h
+    INNER JOIN users u ON u.id = h.created_by
     INNER JOIN job_fair_result j ON j.id = h.candidate_id
     LEFT JOIN users u ON u.name = j.CRM_Member
     LEFT JOIN (
@@ -165,11 +167,11 @@ $summarySql = "
         FROM job_fair_result
         WHERE CRM_Member IS NOT NULL AND TRIM(CRM_Member) <> ''
         GROUP BY CRM_Member
-    ) a ON a.CRM_Member = j.CRM_Member
+    ) a ON a.CRM_Member = u.name
     LEFT JOIN candidate_call_purpose p ON p.id = h.purpose_id
     " . $whereSql . "
-    GROUP BY j.CRM_Member
-    ORDER BY total_calls DESC, j.CRM_Member";
+    GROUP BY u.name
+    ORDER BY total_calls DESC, u.name";
 
 $summaryStmt = db()->prepare($summarySql);
 $summaryStmt->execute($baseParams);
@@ -211,7 +213,7 @@ $detailSql = "
         COALESCE(p.purpose_name, '') AS purpose_name,
         h.call_status,
         h.call_remarks,
-        j.CRM_Member,
+        u.name AS CRM_Member,
         j.Job_Fair_No,
         j.Candidate_Name,
         j.Mobile_Number,
@@ -219,6 +221,7 @@ $detailSql = "
         j.Employer_Name,
         j.Aggregator
     FROM candidate_call_history h
+    INNER JOIN users u ON u.id = h.created_by
     INNER JOIN job_fair_result j ON j.id = h.candidate_id
     LEFT JOIN users u ON u.name = j.CRM_Member
     LEFT JOIN candidate_call_purpose p ON p.id = h.purpose_id
