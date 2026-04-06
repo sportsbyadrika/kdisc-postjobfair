@@ -154,6 +154,7 @@ $summarySql = "
     FROM candidate_call_history h
     INNER JOIN users cu ON cu.id = h.created_by
     INNER JOIN job_fair_result j ON j.id = h.candidate_id
+    LEFT JOIN users u ON u.name = j.CRM_Member
     LEFT JOIN (
         SELECT
             CRM_Member,
@@ -222,6 +223,7 @@ $detailSql = "
     FROM candidate_call_history h
     INNER JOIN users cu ON cu.id = h.created_by
     INNER JOIN job_fair_result j ON j.id = h.candidate_id
+    LEFT JOIN users u ON u.name = j.CRM_Member
     LEFT JOIN candidate_call_purpose p ON p.id = h.purpose_id
     " . $detailWhereSql . "
     ORDER BY h.call_datetime DESC, h.id DESC";
