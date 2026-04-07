@@ -304,7 +304,7 @@ function fetch_shortlisted_onhold_round_pivot_report(array $filters, string $con
     $conversionCondition = $conversionType === 'selected' ? $selectedCondition : $pendingCondition;
     $pendingCountExpression = "SUM(
             CASE
-                WHEN $shortlistStatusExpression IN ('rejected', 'onhold', 'yettobecontacted', 'reviewinprogress', 'selectedfornextround')
+                WHEN $shortlistStatusExpression IN ('rejected', 'onhold', 'yettobecontacted', 'reviewinprogress', 'selectedfornextround', 'shortlisted')
                     AND $categoryExpression IN ('non-rtd', 'k-disc-non-rtd', '')
                 THEN 1
                 ELSE 0
@@ -828,7 +828,7 @@ function build_consolidated_detail_conditions(string $section, string $metric, a
 
         if ($metric === 'shortlist_conversion_pending_count') {
             if ($section === 'shortlisted_rounds_pending') {
-                $conditions[] = "$shortlistStatusExpression IN ('rejected', 'onhold', 'yettobecontacted', 'reviewinprogress', 'selectedfornextround')";
+                $conditions[] = "$shortlistStatusExpression IN ('rejected', 'onhold', 'yettobecontacted', 'reviewinprogress', 'selectedfornextround', 'shortlisted')";
                 $conditions[] = "$categoryExpression IN ('non-rtd', 'k-disc-non-rtd', '')";
             } else {
                 $conditions[] = $pendingCondition;
