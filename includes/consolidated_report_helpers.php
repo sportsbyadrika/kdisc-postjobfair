@@ -413,10 +413,14 @@ function fetch_shortlisted_onhold_call_stage_pivot_report(array $filters): array
         $params[] = strtolower(str_replace(' ', '', $filters['selection_status']));
     }
 
-    $pendingCondition = "$shortlistStatusExpression IN ('onhold', '', 'shortlisted') AND $categoryExpression NOT IN ('k-disc-rtd', 'rtd')";
-    $pendingCountExpression = "(
-            SUM(CASE WHEN $shortlistStatusExpression IN ('onhold', '', 'shortlisted') THEN 1 ELSE 0 END)
-            - SUM(CASE WHEN $selectionStatusExpression IN ('shortlisted', 'onhold') AND $categoryExpression IN ('k-disc-rtd', 'rtd') THEN 1 ELSE 0 END)
+    $pendingCondition = "$shortlistStatusExpression IN ('rejected', 'onhold', 'yettobecontacted', 'reviewinprogress', 'selectedfornextround', 'shortlisted') AND $categoryExpression IN ('non-rtd', 'k-disc-non-rtd', '')";
+    $pendingCountExpression = "SUM(
+            CASE
+                WHEN $shortlistStatusExpression IN ('rejected', 'onhold', 'yettobecontacted', 'reviewinprogress', 'selectedfornextround', 'shortlisted')
+                    AND $categoryExpression IN ('non-rtd', 'k-disc-non-rtd', '')
+                THEN 1
+                ELSE 0
+            END
         )";
     $whereClause = 'WHERE ' . implode(' AND ', $conditions);
 
@@ -760,8 +764,8 @@ function build_consolidated_detail_conditions(string $section, string $metric, a
         $isPendingSection = $section !== 'shortlisted_rounds_selected';
 
         if ($metric === 'call_stage_count') {
-            $conditions[] = $pendingCondition;
-            $conditions[] = "$categoryExpression NOT IN ('k-disc-rtd', 'rtd')";
+            $conditions[] = $shortlistedRoundsPendingCondition;
+            $conditions[] = "$categoryExpression IN ('non-rtd', 'k-disc-non-rtd', '')";
             $callStage = trim((string) ($filters['call_stage'] ?? ''));
             if ($callStage !== '' && job_fair_result_has_id_column()) {
                 $conditions[] = "EXISTS (
@@ -839,8 +843,8 @@ function build_consolidated_detail_conditions(string $section, string $metric, a
                 $conditions[] = $shortlistedRoundsPendingCondition;
                 $conditions[] = "$categoryExpression IN ('non-rtd', 'k-disc-non-rtd', '')";
             } else {
-                $conditions[] = $pendingCondition;
-                $conditions[] = "$categoryExpression NOT IN ('k-disc-rtd', 'rtd')";
+                $conditions[] = $shortlistedRoundsPendingCondition;
+                $conditions[] = "$categoryExpression IN ('non-rtd', 'k-disc-non-rtd', '')";
             }
         }
 
