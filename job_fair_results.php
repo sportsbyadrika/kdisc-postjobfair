@@ -129,6 +129,18 @@ if ($candidateJoinedStatusType !== '' && str_contains($candidateJoinedStatusType
     db()->query("ALTER TABLE job_fair_result MODIFY COLUMN Candidate_Joined_Status ENUM('Yes','No','Pending','Future Date')");
 }
 
+$shortlistCurrentProcessStatusColumnRows = db()->query("SHOW COLUMNS FROM job_fair_result LIKE 'Shortlist_Current_Process_Status'")->fetchAll();
+$shortlistCurrentProcessStatusType = strtolower((string) ($shortlistCurrentProcessStatusColumnRows[0]['Type'] ?? ''));
+if ($shortlistCurrentProcessStatusType !== '' && !str_contains($shortlistCurrentProcessStatusType, "'review in progress'")) {
+    db()->query("ALTER TABLE job_fair_result MODIFY COLUMN Shortlist_Current_Process_Status ENUM('Completed','Pending','Review in progress')");
+}
+
+$shortlistCandidateStatusColumnRows = db()->query("SHOW COLUMNS FROM job_fair_result LIKE 'Shortlist_Candidate_Status'")->fetchAll();
+$shortlistCandidateStatusType = strtolower((string) ($shortlistCandidateStatusColumnRows[0]['Type'] ?? ''));
+if ($shortlistCandidateStatusType !== '' && !str_contains($shortlistCandidateStatusType, "'review in progress'")) {
+    db()->query("ALTER TABLE job_fair_result MODIFY COLUMN Shortlist_Candidate_Status ENUM('Shortlisted','Selected','Rejected','Onhold','Candidate Not Interested','Review in progress')");
+}
+
 db()->query(
     "CREATE TABLE IF NOT EXISTS candidate_manage_activity_log (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -159,7 +171,7 @@ db()->query(
         round_type ENUM('Interview','Test','Other') NOT NULL,
         round_status ENUM('Pending at Employer','Pending at Candidate','Ongoing','Completed') NOT NULL,
         round_remarks ENUM('Not Scheduled','Candidate not informed','Candidate not interested','Not applicable') DEFAULT NULL,
-        round_selection_status ENUM('Selected','Rejected','Pending','Ongoing','Candidate not Attended','Candidate Not Willing') NOT NULL,
+        round_selection_status ENUM('Selected','Rejected','Pending','Ongoing','Candidate not Attended','Candidate Not Willing','Selected for next round') NOT NULL,
         additional_remarks TEXT DEFAULT NULL,
         created_by INT DEFAULT NULL,
         updated_by INT DEFAULT NULL,
@@ -197,15 +209,16 @@ if (
     && (
         !str_contains($shortlistRoundSelectionStatusType, "'pending'")
         || !str_contains($shortlistRoundSelectionStatusType, "'ongoing'")
+        || !str_contains($shortlistRoundSelectionStatusType, "'selected for next round'")
     )
 ) {
-    db()->query("ALTER TABLE candidate_shortlist_rounds MODIFY COLUMN round_selection_status ENUM('Selected','Rejected','Pending','Ongoing','Candidate not Attended','Candidate Not Willing') NOT NULL");
+    db()->query("ALTER TABLE candidate_shortlist_rounds MODIFY COLUMN round_selection_status ENUM('Selected','Rejected','Pending','Ongoing','Candidate not Attended','Candidate Not Willing','Selected for next round') NOT NULL");
 }
 
 $shortlistRoundTypeOptions = ['Interview', 'Test', 'Other'];
 $shortlistRoundStatusOptions = ['Pending at Employer', 'Pending at Candidate', 'Ongoing', 'Completed'];
 $shortlistRoundRemarksOptions = ['Not Scheduled', 'Candidate not informed', 'Candidate not interested', 'Not applicable'];
-$shortlistRoundSelectionStatusOptions = ['Selected', 'Rejected', 'Pending', 'Ongoing', 'Candidate not Attended', 'Candidate Not Willing'];
+$shortlistRoundSelectionStatusOptions = ['Selected', 'Rejected', 'Pending', 'Ongoing', 'Candidate not Attended', 'Candidate Not Willing', 'Selected for next round'];
 
 function log_candidate_manage_activity(int $candidateId, string $section, string $type, string $details, ?int $userId): void
 {
@@ -292,7 +305,7 @@ $editableFieldConfig = [
     [
         'panel_label' => 'Shortlist/Onhold',
         'field_name' => 'Shortlist_Current_Process_Status',
-        'field_type' => "enum('Completed','Pending')",
+        'field_type' => "enum('Completed','Pending','Review in progress')",
         'group_label' => 'Shortlist Process',
         'row_position' => 4,
         'column_position' => 2,
@@ -300,7 +313,7 @@ $editableFieldConfig = [
     [
         'panel_label' => 'Shortlist/Onhold',
         'field_name' => 'Shortlist_Candidate_Status',
-        'field_type' => "enum('Shortlisted','Selected','Rejected','Onhold','Candidate Not Interested')",
+        'field_type' => "enum('Shortlisted','Selected','Rejected','Onhold','Candidate Not Interested','Review in progress')",
         'group_label' => 'Shortlist Process',
         'row_position' => 5,
         'column_position' => 1,
