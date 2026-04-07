@@ -132,8 +132,8 @@ CREATE TABLE IF NOT EXISTS job_fair_result (
   Shortlist_Number_of_Rounds VARCHAR(255),
   Shortlist_Process_Deadline_Date DATETIME,
   Shortlist_Current_Call_Status ENUM('Yes','No','Pending'),
-  Shortlist_Current_Process_Status ENUM('Completed','Pending'),
-  Shortlist_Candidate_Status ENUM('Shortlisted','Selected','Rejected','Onhold'),
+  Shortlist_Current_Process_Status ENUM('Completed','Pending','Review in progress'),
+  Shortlist_Candidate_Status ENUM('Shortlisted','Selected','Rejected','Onhold','Review in progress','Selected for next round'),
   Shortlist_remarks VARCHAR(1000)
 );
 
@@ -202,7 +202,7 @@ CREATE TABLE IF NOT EXISTS candidate_shortlist_rounds (
   round_type ENUM('Interview','Test','Other') NOT NULL,
   round_status ENUM('Pending at Employer','Pending at Candidate','Ongoing','Completed') NOT NULL,
   round_remarks ENUM('Not Scheduled','Candidate not informed','Candidate not interested','Not applicable') DEFAULT NULL,
-  round_selection_status ENUM('Selected','Rejected','Pending','Ongoing','Candidate not Attended','Candidate Not Willing') NOT NULL,
+  round_selection_status ENUM('Selected','Rejected','Pending','Ongoing','Candidate not Attended','Candidate Not Willing','Selected for next round') NOT NULL,
   additional_remarks TEXT DEFAULT NULL,
   created_by INT DEFAULT NULL,
   updated_by INT DEFAULT NULL,
