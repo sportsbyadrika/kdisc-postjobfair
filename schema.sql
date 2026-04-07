@@ -133,7 +133,7 @@ CREATE TABLE IF NOT EXISTS job_fair_result (
   Shortlist_Process_Deadline_Date DATETIME,
   Shortlist_Current_Call_Status ENUM('Yes','No','Pending'),
   Shortlist_Current_Process_Status ENUM('Completed','Pending','Review in progress'),
-  Shortlist_Candidate_Status ENUM('Shortlisted','Selected','Rejected','Onhold','Review in progress','Selected for next round'),
+  Shortlist_Candidate_Status ENUM('Shortlisted','Selected','Rejected','Onhold','Review in progress','Selected for next round','Yet to be contacted'),
   Shortlist_remarks VARCHAR(1000)
 );
 

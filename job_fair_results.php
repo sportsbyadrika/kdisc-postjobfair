@@ -142,9 +142,10 @@ if (
     && (
         !str_contains($shortlistCandidateStatusType, "'review in progress'")
         || !str_contains($shortlistCandidateStatusType, "'selected for next round'")
+        || !str_contains($shortlistCandidateStatusType, "'yet to be contacted'")
     )
 ) {
-    db()->query("ALTER TABLE job_fair_result MODIFY COLUMN Shortlist_Candidate_Status ENUM('Shortlisted','Selected','Rejected','Onhold','Candidate Not Interested','Review in progress','Selected for next round')");
+    db()->query("ALTER TABLE job_fair_result MODIFY COLUMN Shortlist_Candidate_Status ENUM('Shortlisted','Selected','Rejected','Onhold','Candidate Not Interested','Review in progress','Selected for next round','Yet to be contacted')");
 }
 
 db()->query(
@@ -319,7 +320,7 @@ $editableFieldConfig = [
     [
         'panel_label' => 'Shortlist/Onhold',
         'field_name' => 'Shortlist_Candidate_Status',
-        'field_type' => "enum('Shortlisted','Selected','Rejected','Onhold','Candidate Not Interested','Review in progress','Selected for next round')",
+        'field_type' => "enum('Shortlisted','Selected','Rejected','Onhold','Candidate Not Interested','Review in progress','Selected for next round','Yet to be contacted')",
         'group_label' => 'Shortlist Process',
         'row_position' => 5,
         'column_position' => 1,
