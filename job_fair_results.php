@@ -137,8 +137,14 @@ if ($shortlistCurrentProcessStatusType !== '' && !str_contains($shortlistCurrent
 
 $shortlistCandidateStatusColumnRows = db()->query("SHOW COLUMNS FROM job_fair_result LIKE 'Shortlist_Candidate_Status'")->fetchAll();
 $shortlistCandidateStatusType = strtolower((string) ($shortlistCandidateStatusColumnRows[0]['Type'] ?? ''));
-if ($shortlistCandidateStatusType !== '' && !str_contains($shortlistCandidateStatusType, "'review in progress'")) {
-    db()->query("ALTER TABLE job_fair_result MODIFY COLUMN Shortlist_Candidate_Status ENUM('Shortlisted','Selected','Rejected','Onhold','Candidate Not Interested','Review in progress')");
+if (
+    $shortlistCandidateStatusType !== ''
+    && (
+        !str_contains($shortlistCandidateStatusType, "'review in progress'")
+        || !str_contains($shortlistCandidateStatusType, "'selected for next round'")
+    )
+) {
+    db()->query("ALTER TABLE job_fair_result MODIFY COLUMN Shortlist_Candidate_Status ENUM('Shortlisted','Selected','Rejected','Onhold','Candidate Not Interested','Review in progress','Selected for next round')");
 }
 
 db()->query(
@@ -313,7 +319,7 @@ $editableFieldConfig = [
     [
         'panel_label' => 'Shortlist/Onhold',
         'field_name' => 'Shortlist_Candidate_Status',
-        'field_type' => "enum('Shortlisted','Selected','Rejected','Onhold','Candidate Not Interested','Review in progress')",
+        'field_type' => "enum('Shortlisted','Selected','Rejected','Onhold','Candidate Not Interested','Review in progress','Selected for next round')",
         'group_label' => 'Shortlist Process',
         'row_position' => 5,
         'column_position' => 1,
