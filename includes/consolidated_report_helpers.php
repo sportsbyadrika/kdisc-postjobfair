@@ -251,10 +251,10 @@ function fetch_shortlisted_onhold_report(array $filters): array
             SUM(CASE WHEN $shortlistStatusExpression = 'shortlisted' THEN 1 ELSE 0 END) AS shortlist_status_shortlisted,
             SUM(CASE WHEN $shortlistStatusExpression = 'selected' THEN 1 ELSE 0 END) AS shortlist_status_selected,
             SUM(CASE WHEN $selectionStatusExpression IN ('shortlisted', 'onhold') AND $categoryExpression IN ('k-disc-rtd', 'rtd') THEN 1 ELSE 0 END) AS shortlist_status_rtd_jobs,
-            SUM(CASE WHEN $shortlistStatusExpression IN ('rejected', 'candidatenotinterested') THEN 1 ELSE 0 END) AS shortlist_status_rejected,
-            SUM(CASE WHEN $shortlistStatusExpression = 'onhold' THEN 1 ELSE 0 END) AS shortlist_status_onhold_only,
-            SUM(CASE WHEN $shortlistStatusExpression = 'yettobecontacted' THEN 1 ELSE 0 END) AS shortlist_status_yet_to_be_contacted,
-            SUM(CASE WHEN $shortlistStatusExpression = 'reviewinprogress' THEN 1 ELSE 0 END) AS shortlist_status_review_in_progress,
+            SUM(CASE WHEN $shortlistStatusExpression IN ('rejected', 'candidatenotinterested') AND $categoryExpression IN ('non-rtd', 'k-disc-non-rtd', '') THEN 1 ELSE 0 END) AS shortlist_status_rejected,
+            SUM(CASE WHEN $shortlistStatusExpression = 'onhold' AND $categoryExpression IN ('non-rtd', 'k-disc-non-rtd', '') THEN 1 ELSE 0 END) AS shortlist_status_onhold_only,
+            SUM(CASE WHEN $shortlistStatusExpression = 'yettobecontacted' AND $categoryExpression IN ('non-rtd', 'k-disc-non-rtd', '') THEN 1 ELSE 0 END) AS shortlist_status_yet_to_be_contacted,
+            SUM(CASE WHEN $shortlistStatusExpression = 'reviewinprogress' AND $categoryExpression IN ('non-rtd', 'k-disc-non-rtd', '') THEN 1 ELSE 0 END) AS shortlist_status_review_in_progress,
             SUM(CASE WHEN $shortlistStatusExpression IN ('selectedfornextround', 'shortlisted') AND $categoryExpression IN ('non-rtd', 'k-disc-non-rtd', '') THEN 1 ELSE 0 END) AS shortlist_status_selected_for_next_round_net,
             (
                 SUM(CASE WHEN $shortlistStatusExpression IN ('onhold', '', 'shortlisted') THEN 1 ELSE 0 END)
@@ -631,7 +631,7 @@ function fetch_shortlisted_onhold_report_by_job_station(array $filters): array
             SUM(CASE WHEN $shortlistStatusExpression = 'shortlisted' THEN 1 ELSE 0 END) AS shortlist_status_shortlisted,
             SUM(CASE WHEN $shortlistStatusExpression = 'selected' THEN 1 ELSE 0 END) AS shortlist_status_selected,
             SUM(CASE WHEN ($selectionStatusExpression = 'selected' AND $categoryExpression IN ('k-disc-rtd', 'rtd')) OR ($shortlistStatusExpression = 'selected' AND $categoryExpression IN ('k-disc-rtd', 'rtd')) THEN 1 ELSE 0 END) AS shortlist_status_rtd_jobs,
-            SUM(CASE WHEN $shortlistStatusExpression IN ('rejected', 'candidatenotinterested') THEN 1 ELSE 0 END) AS shortlist_status_rejected,
+            SUM(CASE WHEN $shortlistStatusExpression IN ('rejected', 'candidatenotinterested') AND $categoryExpression IN ('non-rtd', 'k-disc-non-rtd', '') THEN 1 ELSE 0 END) AS shortlist_status_rejected,
             SUM(CASE WHEN $shortlistStatusExpression IN ('onhold', '', 'shortlisted') THEN 1 ELSE 0 END) AS shortlist_status_onhold,
             SUM(CASE WHEN $shortlistStatusExpression = 'selected' AND LOWER(TRIM(COALESCE(Offer_Letter_Generated, ''))) = 'yes' THEN 1 ELSE 0 END) AS offer_generated_yes,
             SUM(CASE WHEN $shortlistStatusExpression = 'selected' AND (LOWER(TRIM(COALESCE(Offer_Letter_Generated, ''))) IN ('no', 'pending') OR TRIM(COALESCE(Offer_Letter_Generated, '')) = '') THEN 1 ELSE 0 END) AS offer_generated_no,
@@ -861,6 +861,8 @@ function build_consolidated_detail_conditions(string $section, string $metric, a
             break;
         case 'shortlist_status_rejected':
             $conditions[] = "$shortlistStatusExpression IN ('rejected', 'candidatenotinterested')";
+            $categoryExpression = normalized_column('Category');
+            $conditions[] = "$categoryExpression IN ('non-rtd', 'k-disc-non-rtd', '')";
             break;
         case 'shortlist_status_rtd_jobs':
             $categoryExpression = normalized_column('Category');
@@ -874,12 +876,18 @@ function build_consolidated_detail_conditions(string $section, string $metric, a
             break;
         case 'shortlist_status_onhold_only':
             $conditions[] = "$shortlistStatusExpression = 'onhold'";
+            $categoryExpression = normalized_column('Category');
+            $conditions[] = "$categoryExpression IN ('non-rtd', 'k-disc-non-rtd', '')";
             break;
         case 'shortlist_status_yet_to_be_contacted':
             $conditions[] = "$shortlistStatusExpression = 'yettobecontacted'";
+            $categoryExpression = normalized_column('Category');
+            $conditions[] = "$categoryExpression IN ('non-rtd', 'k-disc-non-rtd', '')";
             break;
         case 'shortlist_status_review_in_progress':
             $conditions[] = "$shortlistStatusExpression = 'reviewinprogress'";
+            $categoryExpression = normalized_column('Category');
+            $conditions[] = "$categoryExpression IN ('non-rtd', 'k-disc-non-rtd', '')";
             break;
         case 'shortlist_status_selected_for_next_round_net':
             $conditions[] = "$shortlistStatusExpression IN ('selectedfornextround', 'shortlisted')";
