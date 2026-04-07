@@ -66,7 +66,10 @@ $shortlistedTotals = calculate_consolidated_totals($shortlistedRows, [
     'shortlist_status_selected',
     'shortlist_status_rtd_jobs',
     'shortlist_status_rejected',
-    'shortlist_status_onhold',
+    'shortlist_status_onhold_only',
+    'shortlist_status_yet_to_be_contacted',
+    'shortlist_status_review_in_progress',
+    'shortlist_status_selected_for_next_round_net',
     'offer_generated_yes',
     'offer_generated_no',
     'offer_link_with_link',
@@ -236,7 +239,7 @@ render_header('Consolidated report', ['main_container_class' => 'container-fluid
                 <tr>
                     <th rowspan="2">Job Fair No</th>
                     <th rowspan="2">Total Shortlisted/Onhold Candidate</th>
-                    <th colspan="4" class="text-center">Shortlisted Conversion</th>
+                    <th colspan="7" class="text-center">Shortlisted Conversion</th>
                     <th colspan="2" class="text-center">Offer Letter Generated</th>
                     <th colspan="2" class="text-center">Offer Letter Softcopy</th>
                     <th colspan="3" class="text-center">Softcopy Verified</th>
@@ -247,7 +250,10 @@ render_header('Consolidated report', ['main_container_class' => 'container-fluid
                     <th>Selected</th>
                     <th>RTD Jobs</th>
                     <th>Rejected</th>
-                    <th>Pending</th>
+                    <th>Onhold</th>
+                    <th>Yet to be contacted</th>
+                    <th>Review in progress</th>
+                    <th>Selected for next round</th>
                     <th>Yes</th>
                     <th>No</th>
                     <th>Received</th>
@@ -265,7 +271,7 @@ render_header('Consolidated report', ['main_container_class' => 'container-fluid
                 </thead>
                 <tbody>
                 <?php if ($shortlistedRows === []): ?>
-                    <tr><td colspan="19" class="text-center text-muted">No data available.</td></tr>
+                    <tr><td colspan="22" class="text-center text-muted">No data available.</td></tr>
                 <?php endif; ?>
                 <?php foreach ($shortlistedRows as $row): ?>
                     <tr>
@@ -274,7 +280,10 @@ render_header('Consolidated report', ['main_container_class' => 'container-fluid
                         <td><?= render_metric_link((int) $row['shortlist_status_selected'], 'shortlisted', 'shortlist_status_selected', (string) $row['job_fair_no'], $filters) ?></td>
                         <td><?= render_metric_link((int) $row['shortlist_status_rtd_jobs'], 'shortlisted', 'shortlist_status_rtd_jobs', (string) $row['job_fair_no'], $filters) ?></td>
                         <td><?= render_metric_link((int) $row['shortlist_status_rejected'], 'shortlisted', 'shortlist_status_rejected', (string) $row['job_fair_no'], $filters) ?></td>
-                        <td><?= render_metric_link((int) $row['shortlist_status_onhold'], 'shortlisted', 'shortlist_status_onhold', (string) $row['job_fair_no'], $filters) ?></td>
+                        <td><?= render_metric_link((int) $row['shortlist_status_onhold_only'], 'shortlisted', 'shortlist_status_onhold_only', (string) $row['job_fair_no'], $filters) ?></td>
+                        <td><?= render_metric_link((int) $row['shortlist_status_yet_to_be_contacted'], 'shortlisted', 'shortlist_status_yet_to_be_contacted', (string) $row['job_fair_no'], $filters) ?></td>
+                        <td><?= render_metric_link((int) $row['shortlist_status_review_in_progress'], 'shortlisted', 'shortlist_status_review_in_progress', (string) $row['job_fair_no'], $filters) ?></td>
+                        <td><?= render_metric_link((int) $row['shortlist_status_selected_for_next_round_net'], 'shortlisted', 'shortlist_status_selected_for_next_round_net', (string) $row['job_fair_no'], $filters) ?></td>
                         <td><?= render_metric_link((int) $row['offer_generated_yes'], 'shortlisted', 'offer_generated_yes', (string) $row['job_fair_no'], $filters) ?></td>
                         <td><?= render_metric_link((int) $row['offer_generated_no'], 'shortlisted', 'offer_generated_no', (string) $row['job_fair_no'], $filters) ?></td>
                         <td><?= render_metric_link((int) $row['offer_link_with_link'], 'shortlisted', 'offer_link_with_link', (string) $row['job_fair_no'], $filters) ?></td>
@@ -297,7 +306,10 @@ render_header('Consolidated report', ['main_container_class' => 'container-fluid
                         <td><?= render_metric_link($shortlistedTotals['shortlist_status_selected'], 'shortlisted', 'shortlist_status_selected', null, $filters) ?></td>
                         <td><?= render_metric_link($shortlistedTotals['shortlist_status_rtd_jobs'], 'shortlisted', 'shortlist_status_rtd_jobs', null, $filters) ?></td>
                         <td><?= render_metric_link($shortlistedTotals['shortlist_status_rejected'], 'shortlisted', 'shortlist_status_rejected', null, $filters) ?></td>
-                        <td><?= render_metric_link($shortlistedTotals['shortlist_status_onhold'], 'shortlisted', 'shortlist_status_onhold', null, $filters) ?></td>
+                        <td><?= render_metric_link($shortlistedTotals['shortlist_status_onhold_only'], 'shortlisted', 'shortlist_status_onhold_only', null, $filters) ?></td>
+                        <td><?= render_metric_link($shortlistedTotals['shortlist_status_yet_to_be_contacted'], 'shortlisted', 'shortlist_status_yet_to_be_contacted', null, $filters) ?></td>
+                        <td><?= render_metric_link($shortlistedTotals['shortlist_status_review_in_progress'], 'shortlisted', 'shortlist_status_review_in_progress', null, $filters) ?></td>
+                        <td><?= render_metric_link($shortlistedTotals['shortlist_status_selected_for_next_round_net'], 'shortlisted', 'shortlist_status_selected_for_next_round_net', null, $filters) ?></td>
                         <td><?= render_metric_link($shortlistedTotals['offer_generated_yes'], 'shortlisted', 'offer_generated_yes', null, $filters) ?></td>
                         <td><?= render_metric_link($shortlistedTotals['offer_generated_no'], 'shortlisted', 'offer_generated_no', null, $filters) ?></td>
                         <td><?= render_metric_link($shortlistedTotals['offer_link_with_link'], 'shortlisted', 'offer_link_with_link', null, $filters) ?></td>
