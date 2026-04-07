@@ -299,12 +299,16 @@ function fetch_shortlisted_onhold_round_pivot_report(array $filters, string $con
         $params[] = strtolower(str_replace(' ', '', $filters['selection_status']));
     }
 
-    $pendingCondition = "$shortlistStatusExpression IN ('onhold', '', 'shortlisted') AND $categoryExpression NOT IN ('k-disc-rtd', 'rtd')";
+    $pendingCondition = "$shortlistStatusExpression IN ('rejected', 'onhold', 'yettobecontacted', 'reviewinprogress', 'selectedfornextround', 'shortlisted') AND $categoryExpression IN ('non-rtd', 'k-disc-non-rtd', '')";
     $selectedCondition = "$shortlistStatusExpression = 'selected'";
     $conversionCondition = $conversionType === 'selected' ? $selectedCondition : $pendingCondition;
-    $pendingCountExpression = "(
-            SUM(CASE WHEN $shortlistStatusExpression IN ('onhold', '', 'shortlisted') THEN 1 ELSE 0 END)
-            - SUM(CASE WHEN $selectionStatusExpression IN ('shortlisted', 'onhold') AND $categoryExpression IN ('k-disc-rtd', 'rtd') THEN 1 ELSE 0 END)
+    $pendingCountExpression = "SUM(
+            CASE
+                WHEN $shortlistStatusExpression IN ('rejected', 'onhold', 'yettobecontacted', 'reviewinprogress', 'selectedfornextround', 'shortlisted')
+                    AND $categoryExpression IN ('non-rtd', 'k-disc-non-rtd', '')
+                THEN 1
+                ELSE 0
+            END
         )";
     $conversionCountExpression = $conversionType === 'selected'
         ? "SUM(CASE WHEN $selectedCondition THEN 1 ELSE 0 END)"
@@ -737,6 +741,7 @@ function build_consolidated_detail_conditions(string $section, string $metric, a
     if ($section === 'shortlisted_rounds_pending' || $section === 'shortlisted_rounds_selected' || $section === 'crm_call_count_pending' || $section === 'crm_call_count_joined_status') {
         $categoryExpression = normalized_column('Category');
         $pendingCondition = "$shortlistStatusExpression IN ('onhold', '', 'shortlisted')";
+        $shortlistedRoundsPendingCondition = "$shortlistStatusExpression IN ('rejected', 'onhold', 'yettobecontacted', 'reviewinprogress', 'selectedfornextround', 'shortlisted')";
         $selectedCondition = "$shortlistStatusExpression = 'selected'";
 
         if ($section === 'crm_call_count_joined_status') {
@@ -791,9 +796,16 @@ function build_consolidated_detail_conditions(string $section, string $metric, a
         }
 
         if ($metric === 'round_status_count') {
-            $conditions[] = $isPendingSection ? $pendingCondition : $selectedCondition;
             if ($isPendingSection) {
-                $conditions[] = "$categoryExpression NOT IN ('k-disc-rtd', 'rtd')";
+                if ($section === 'shortlisted_rounds_pending') {
+                    $conditions[] = $shortlistedRoundsPendingCondition;
+                    $conditions[] = "$categoryExpression IN ('non-rtd', 'k-disc-non-rtd', '')";
+                } else {
+                    $conditions[] = $pendingCondition;
+                    $conditions[] = "$categoryExpression NOT IN ('k-disc-rtd', 'rtd')";
+                }
+            } else {
+                $conditions[] = $selectedCondition;
             }
             $roundNumber = trim((string) ($filters['round_number'] ?? ''));
             $roundSelectionStatus = trim((string) ($filters['round_selection_status'] ?? ''));
@@ -823,8 +835,13 @@ function build_consolidated_detail_conditions(string $section, string $metric, a
         }
 
         if ($metric === 'shortlist_conversion_pending_count') {
-            $conditions[] = $pendingCondition;
-            $conditions[] = "$categoryExpression NOT IN ('k-disc-rtd', 'rtd')";
+            if ($section === 'shortlisted_rounds_pending') {
+                $conditions[] = $shortlistedRoundsPendingCondition;
+                $conditions[] = "$categoryExpression IN ('non-rtd', 'k-disc-non-rtd', '')";
+            } else {
+                $conditions[] = $pendingCondition;
+                $conditions[] = "$categoryExpression NOT IN ('k-disc-rtd', 'rtd')";
+            }
         }
 
         if ($metric === 'shortlist_conversion_selected_count') {
