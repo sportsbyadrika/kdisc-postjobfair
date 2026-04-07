@@ -253,7 +253,7 @@ render_header('Consolidated report', ['main_container_class' => 'container-fluid
                     <th>Onhold</th>
                     <th>Yet to be contacted</th>
                     <th>Review in progress</th>
-                    <th>Selected for next round (minus RTD Jobs)</th>
+                    <th>Selected for next round</th>
                     <th>Yes</th>
                     <th>No</th>
                     <th>Received</th>
